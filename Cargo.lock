@@ -548,6 +548,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 name = "cli_new"
 version = "0.1.0"
 dependencies = [
+ "bs58",
  "clap",
  "rand_core",
  "schnorrkel 0.11.4 (git+https://github.com/Fiono11/schnorrkel?branch=final_frost)",

@@ -29,24 +29,27 @@ pub mod polkadot {}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /*let keypair1 = Keypair::generate();
+    let keypair2 = Keypair::generate();
+
+    println!("keypair1 sk: {:?}", keypair1.secret.to_bytes());
+    println!("keypair1 pk: {:?}", keypair1.public.to_bytes());
+    println!("keypair2 sk: {:?}", keypair2.secret.to_bytes());
+    println!("keypair2 pk: {:?}", keypair2.public.to_bytes());*/
+
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::SimplpedpopRound1 {
-            secret_key,
-            recipients,
-            output,
-        } => {
+        Commands::SimplpedpopRound1 { files } => {
             let secret_key_string =
-                fs::read_to_string(Path::new(&secret_key).join("contributor_secret_key.json"))
-                    .unwrap();
+                fs::read_to_string(Path::new(&files).join("contributor_secret_key.json")).unwrap();
 
             let secret_key_bytes: Vec<u8> = from_str(&secret_key_string).unwrap();
 
             let keypair = Keypair::from(SecretKey::from_bytes(&secret_key_bytes).unwrap());
 
             let recipients_string =
-                fs::read_to_string(Path::new(&recipients).join("recipients.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("recipients.json")).unwrap();
 
             let recipients_bytes: Vec<Vec<u8>> = from_str(&recipients_string).unwrap();
 
@@ -65,27 +68,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let all_message_json = serde_json::to_string_pretty(&all_message_vec).unwrap();
 
             let mut all_message_file =
-                File::create(Path::new(&output).join("all_messages.json")).unwrap();
+                File::create(Path::new(&files).join("all_messages.json")).unwrap();
 
             all_message_file
                 .write_all(&all_message_json.as_bytes())
                 .unwrap();
         }
-        Commands::SimplpedpopRound2 {
-            secret_key,
-            all_messages,
-            output,
-        } => {
+        Commands::SimplpedpopRound2 { files } => {
             let secret_key_string =
-                fs::read_to_string(Path::new(&secret_key).join("recipient_secret_key.json"))
-                    .unwrap();
+                fs::read_to_string(Path::new(&files).join("recipient_secret_key.json")).unwrap();
 
             let secret_key_bytes: Vec<u8> = from_str(&secret_key_string).unwrap();
 
             let keypair = Keypair::from(SecretKey::from_bytes(&secret_key_bytes).unwrap());
 
             let all_messages_string =
-                fs::read_to_string(Path::new(&all_messages).join("all_messages.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("all_messages.json")).unwrap();
 
             let all_messages_bytes: Vec<Vec<u8>> = from_str(&all_messages_string).unwrap();
 
@@ -96,12 +94,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let simplpedpop = keypair.simplpedpop_recipient_all(&all_messages).unwrap();
 
-            let output_round1 = simplpedpop.0.clone();
+            let spp_output = simplpedpop.0.clone();
 
-            let output_json = serde_json::to_string_pretty(&output_round1.to_bytes()).unwrap();
+            let output_json = serde_json::to_string_pretty(&spp_output.to_bytes()).unwrap();
 
-            let mut output_file =
-                File::create(Path::new(&output).join("output_round1.json")).unwrap();
+            let mut output_file = File::create(Path::new(&files).join("spp_output.json")).unwrap();
 
             output_file.write_all(&output_json.as_bytes()).unwrap();
 
@@ -111,7 +108,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&signing_share.to_bytes().to_vec()).unwrap();
 
             let mut signing_share_file =
-                File::create(Path::new(&output).join("signing_share.json")).unwrap();
+                File::create(Path::new(&files).join("signing_share.json")).unwrap();
 
             signing_share_file
                 .write_all(&signing_share_json.as_bytes())
@@ -123,18 +120,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&threshold_public_key.0.to_bytes()).unwrap();
 
             let mut threshold_public_key_file =
-                File::create(Path::new(&output).join("threshold_public_key.json")).unwrap();
+                File::create(Path::new(&files).join("threshold_public_key.json")).unwrap();
 
             threshold_public_key_file
                 .write_all(threshold_public_key_json.as_bytes())
                 .unwrap();
         }
-        Commands::FrostRound1 {
-            simplpedpop,
-            output,
-        } => {
+        Commands::FrostRound1 { files } => {
             let signing_share_string =
-                fs::read_to_string(Path::new(&simplpedpop).join("signing_share.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("signing_share.json")).unwrap();
 
             let signing_share_bytes: Vec<u8> = from_str(&signing_share_string).unwrap();
 
@@ -146,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&signing_nonces.to_bytes().to_vec()).unwrap();
 
             let mut signing_nonces_file =
-                File::create(Path::new(&output).join("signing_nonces.json")).unwrap();
+                File::create(Path::new(&files).join("signing_nonces.json")).unwrap();
 
             signing_nonces_file
                 .write_all(&signing_nonces_json.as_bytes())
@@ -158,15 +152,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&signing_commitments_vec).unwrap();
 
             let mut signing_commitments_file =
-                File::create(Path::new(&output).join("signing_commitments.json")).unwrap();
+                File::create(Path::new(&files).join("signing_commitments.json")).unwrap();
 
             signing_commitments_file
                 .write_all(&signing_commitments_json.as_bytes())
                 .unwrap();
         }
-        Commands::FrostRound2 { round1, output } => {
+        Commands::FrostRound2 { files } => {
             let signing_commitments_string =
-                fs::read_to_string(Path::new(&round1).join("signing_commitments.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("signing_commitments.json")).unwrap();
 
             let signing_commitments_bytes: Vec<Vec<u8>> =
                 from_str(&signing_commitments_string).unwrap();
@@ -179,30 +173,57 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .collect();
 
             let signing_nonces_string =
-                fs::read_to_string(Path::new(&round1).join("signing_nonces.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("signing_nonces.json")).unwrap();
 
             let signing_nonces_bytes: Vec<u8> = from_str(&signing_nonces_string).unwrap();
 
             let signing_nonces = SigningNonces::from_bytes(&signing_nonces_bytes).unwrap();
 
             let signing_share_string =
-                fs::read_to_string(Path::new(&round1).join("signing_share.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("signing_share.json")).unwrap();
 
             let signing_share_bytes: Vec<u8> = from_str(&signing_share_string).unwrap();
 
             let signing_share = SigningKeypair::from_bytes(&signing_share_bytes).unwrap();
 
             let output_string =
-                fs::read_to_string(Path::new(&round1).join("output_round1.json")).unwrap();
+                fs::read_to_string(Path::new(&files).join("spp_output.json")).unwrap();
 
             let output_bytes: Vec<u8> = from_str(&output_string).unwrap();
 
             let spp_output = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
 
+            let threshold_public_key_string =
+                fs::read_to_string(Path::new(&files).join("threshold_public_key.json")).unwrap();
+
+            let threshold_public_key_bytes: Vec<u8> =
+                from_str(&threshold_public_key_string).unwrap();
+
+            let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes).unwrap();
+
+            let client = OnlineClient::<PolkadotConfig>::new().await?;
+
+            let rpc_client = RpcClient::from_url("ws://127.0.0.1:9944").await?;
+
+            let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
+
+            let call =
+                subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+
+            let account_id = AccountId32(threshold_public_key.to_bytes());
+
+            let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
+
+            let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build();
+
+            let partial_tx = client.tx().create_partial_signed_offline(&call, params)?;
+
+            let payload = partial_tx.signer_payload();
+
             let signing_package = signing_share
                 .sign(
                     CONTEXT.to_vec(),
-                    b"message".to_vec(),
+                    payload,
                     spp_output.spp_output(),
                     signing_commitments,
                     &signing_nonces,
@@ -214,28 +235,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let signing_package_json = serde_json::to_string_pretty(&signing_packages_vec).unwrap();
 
             let mut signing_package_file =
-                File::create(Path::new(&output).join("signing_packages.json")).unwrap();
+                File::create(Path::new(&files).join("signing_packages.json")).unwrap();
 
             signing_package_file
                 .write_all(&signing_package_json.as_bytes())
                 .unwrap();
         }
-        Commands::FrostAggregate {
-            signing_packages,
-            output,
-        } => {
+        Commands::FrostAggregate { files } => {
             let threshold_public_key_string =
-                fs::read_to_string(Path::new(&signing_packages).join("threshold_public_key.json"))
-                    .unwrap();
+                fs::read_to_string(Path::new(&files).join("threshold_public_key.json")).unwrap();
 
             let threshold_public_key_bytes: Vec<u8> =
                 from_str(&threshold_public_key_string).unwrap();
 
             let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes).unwrap();
 
+            let account_id = AccountId32(threshold_public_key.to_bytes());
+
+            println!("pk: {:?}", account_id.to_string());
+
             let signing_packages_string =
-                fs::read_to_string(Path::new(&signing_packages).join("signing_packages.json"))
-                    .unwrap();
+                fs::read_to_string(Path::new(&files).join("signing_packages.json")).unwrap();
 
             let signing_packages_bytes: Vec<Vec<u8>> = from_str(&signing_packages_string).unwrap();
 
@@ -250,7 +270,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 serde_json::to_string_pretty(&group_signature.to_bytes().to_vec()).unwrap();
 
             let mut signature_file =
-                File::create(Path::new(&output).join("signature.json")).unwrap();
+                File::create(Path::new(&files).join("signature.json")).unwrap();
 
             signature_file
                 .write_all(&signature_json.as_bytes())
@@ -261,8 +281,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let rpc_client = RpcClient::from_url("ws://127.0.0.1:9944").await?;
 
             let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
-
-            let account_id = AccountId32(threshold_public_key.to_bytes());
 
             let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
 
@@ -313,52 +331,23 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     SimplpedpopRound1 {
-        #[arg(
-            long,
-            help = "The keypair of the contributor in the SimplPedPoP protocol"
-        )]
-        secret_key: String,
-        #[arg(long, help = "The recipients of the SimplPedPoP protocol")]
-        recipients: String,
-        #[arg(
-            long,
-            help = "The output of the first round of the SimplPedPoP protocol"
-        )]
-        output: String,
+        #[arg(long)]
+        files: String,
     },
     SimplpedpopRound2 {
-        #[arg(
-            long,
-            help = "The keypair of the contributor in the SimplPedPoP protocol"
-        )]
-        secret_key: String,
-        #[arg(
-            long,
-            help = "The messages from the first rounf of the SimplPedPoP protocol"
-        )]
-        all_messages: String,
-        #[arg(
-            long,
-            help = "The output of the first round of the SimplPedPoP protocol"
-        )]
-        output: String,
+        #[arg(long)]
+        files: String,
     },
     FrostRound1 {
-        #[arg(long, help = "The output of the SimplPedPoP protocol")]
-        simplpedpop: String,
-        #[arg(long, help = "The output of the first round of the FROST protocol")]
-        output: String,
+        #[arg(long)]
+        files: String,
     },
     FrostRound2 {
-        #[arg(long, help = "The output of the round1 the FROST protocol")]
-        round1: String,
-        #[arg(long, help = "The output of the second round of the FROST protocol")]
-        output: String,
+        #[arg(long)]
+        files: String,
     },
     FrostAggregate {
-        #[arg(long, help = "The output of the round2 the FROST protocol")]
-        signing_packages: String,
-        #[arg(long, help = "The final threshold signature the FROST protocol")]
-        output: String,
+        #[arg(long)]
+        files: String,
     },
 }
