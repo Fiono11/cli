@@ -23,7 +23,8 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-fn async main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /*let mut rng = OsRng;
     let keypair1 = SigningKeypair::generate(&mut rng);
     let keypair2 = SigningKeypair::generate(&mut rng);
@@ -279,7 +280,7 @@ fn async main() -> Result<(), Box<dyn std::error::Error>> {
                 sideband: None,
             };
 
-            rpc_client.receive_block("wallet", account, block).await;
+            rpc_client.receive_block("wallet", "account", "block").await;
         }
     }
     Ok(())
