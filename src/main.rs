@@ -249,14 +249,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let signing_packages_bytes: Vec<Vec<u8>> = from_str(&signing_packages_string).unwrap();
 
-            let signing_packages: Vec<SigningPackage> = signing_packages_bytes
-                .iter()
-                .map(|signing_commitments| SigningPackage::from_bytes(signing_commitments).unwrap())
-                .collect();
+            /*let signing_packages: Vec<SigningPackage> = signing_packages_bytes
+            .iter()
+            .map(|signing_commitments| SigningPackage::from_bytes(signing_commitments).unwrap())
+            .collect();*/
 
-            let signature = crate::Signature {
-                bytes: aggregate(&signing_packages).unwrap().to_bytes(),
-            };
+            //let signature = crate::Signature {
+            //bytes: aggregate(&signing_packages).unwrap().to_bytes(),
+            //};
 
             let work = 0;
 
@@ -272,23 +272,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let hash = LazyBlockHash::new();
 
-            let rpc_client = RpcClient::new(Url::from_str("url").unwrap());
+            let rpc_client =
+                RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap());
 
-            let block = OpenBlock {
-                work,
-                signature,
-                hashables,
-                hash,
-                sideband: None,
-            };
+            /*let block = OpenBlock {
+            work,
+            signature,
+            hashables,
+            hash,
+            sideband: None,
+            };*/
 
-            rpc_client
-                .receive_block(
-                    "wallet",
-                    "account",
-                    &serde_json::to_string_pretty(&block).unwrap(),
+            /*rpc_client
+            .receive_block(
+                "wallet",
+                "account",
+                &serde_json::to_string_pretty(&block).unwrap(),
+            )
+            .await?;*/
+
+            let response = rpc_client
+                .account_info_rpc(
+                    "nano_1bnano1dnhc356frb1owg4mhi4r47j1i15yq8nuyyso8fg64ux9kdxzmae5g",
                 )
                 .await?;
+
+            println!("{:?}", response);
         }
     }
     Ok(())
@@ -650,4 +659,26 @@ impl RpcClient {
         self.rpc_request(&request).await?;
         Ok(())
     }
+
+    pub async fn account_info_rpc(&self, account: &str) -> Result<AccountInfo> {
+        let request = json!({
+            "action": "account_info",
+            "account": account
+        });
+
+        let json = self.rpc_request(&request).await?;
+
+        Ok(AccountInfo {
+            frontier: json["frontier"].as_str().unwrap().to_owned(),
+            block_count: json["block_count"].as_str().unwrap().to_owned(),
+            balance: json["balance"].as_str().unwrap().to_owned(),
+        })
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct AccountInfo {
+    pub frontier: String,
+    pub block_count: String,
+    pub balance: String,
 }
