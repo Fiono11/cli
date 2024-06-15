@@ -10,8 +10,10 @@ use olaf::{
     simplpedpop::{AllMessage, SPPOutput},
     SigningKeypair,
 };
+use primitive_types::U512;
 use rand_core::OsRng;
 use reqwest::Url;
+use serde::ser::SerializeStruct;
 use serde_json::from_str;
 use serde_json::json;
 use std::str::FromStr;
@@ -280,7 +282,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 sideband: None,
             };
 
-            rpc_client.receive_block("wallet", "account", "block").await;
+            rpc_client
+                .receive_block(
+                    "wallet",
+                    "account",
+                    &serde_json::to_string_pretty(&block).unwrap(),
+                )
+                .await?;
         }
     }
     Ok(())
@@ -356,6 +364,26 @@ impl OpenBlock {
     }
 }
 
+impl serde::Serialize for OpenBlock {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Block", 6)?;
+        state.serialize_field("type", "open")?;
+        state.serialize_field("source", &self.hashables.source)?;
+        state.serialize_field("representative", &self.hashables.representative)?;
+        state.serialize_field("account", &self.hashables.account)?;
+        state.serialize_field("work", &to_hex_string(self.work))?;
+        state.serialize_field("signature", &self.signature)?;
+        state.end()
+    }
+}
+
+pub fn to_hex_string(i: u64) -> String {
+    format!("{:016X}", i)
+}
+
 #[derive(Clone, Default, Debug)]
 pub struct LazyBlockHash {
     // todo: Remove Arc<RwLock>? Maybe remove lazy hash calculation?
@@ -423,6 +451,27 @@ pub struct Signature {
     bytes: [u8; 64],
 }
 
+use std::fmt::Write as _;
+
+impl Signature {
+    pub fn encode_hex(&self) -> String {
+        let mut result = String::with_capacity(128);
+        for byte in self.bytes {
+            write!(&mut result, "{:02X}", byte).unwrap();
+        }
+        result
+    }
+}
+
+impl serde::Serialize for Signature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.encode_hex())
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct OpenHashables {
     /// Block with first send transaction to this account
@@ -473,6 +522,52 @@ impl BlockHashBuilder {
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Default, PartialOrd, Ord, Debug)]
 pub struct Account([u8; 32]);
 
+impl Account {
+    pub fn encode_account(&self) -> String {
+        let mut number = U512::from_big_endian(&self.0);
+        let check = U512::from_little_endian(&self.account_checksum());
+        number <<= 40;
+        number |= check;
+
+        let mut result = String::with_capacity(65);
+
+        for _i in 0..60 {
+            let r = number.byte(0) & 0x1f_u8;
+            number >>= 5;
+            result.push(account_encode(r));
+        }
+        result.push_str("_onan"); // nano_
+        result.chars().rev().collect()
+    }
+
+    fn account_checksum(&self) -> [u8; 5] {
+        let mut check = [0u8; 5];
+        let mut blake = Blake2bVar::new(check.len()).unwrap();
+        blake.update(&self.0);
+        blake.finalize_variable(&mut check).unwrap();
+
+        check
+    }
+}
+
+const ACCOUNT_LOOKUP: &[char] = &[
+    '1', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k',
+    'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'w', 'x', 'y', 'z',
+];
+
+fn account_encode(value: u8) -> char {
+    ACCOUNT_LOOKUP[value as usize]
+}
+
+impl serde::Serialize for Account {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.encode_account())
+    }
+}
+
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Default, PartialOrd, Ord, Debug)]
 pub struct BlockHash([u8; 32]);
 
@@ -486,6 +581,28 @@ impl BlockHash {
 
     pub fn is_zero(&self) -> bool {
         self.0 == [0; 32]
+    }
+
+    pub fn as_bytes(&'_ self) -> &'_ [u8; 32] {
+        &self.0
+    }
+
+    pub fn encode_hex(&self) -> String {
+        use std::fmt::Write;
+        let mut result = String::with_capacity(64);
+        for &byte in self.as_bytes() {
+            write!(&mut result, "{:02X}", byte).unwrap();
+        }
+        result
+    }
+}
+
+impl serde::Serialize for BlockHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.encode_hex())
     }
 }
 

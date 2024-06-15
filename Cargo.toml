@@ -19,3 +19,5 @@ blake2 = "0.10"
 reqwest = { version = "0.11.7", default-features = false, features = ["json"]}
 anyhow = "1.0.40"
 tokio = { version = "1.37", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+primitive-types = "0"
