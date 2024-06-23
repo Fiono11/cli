@@ -218,6 +218,14 @@ impl std::ops::Add for Amount {
     }
 }
 
+impl std::ops::Sub for Amount {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Amount::raw(self.raw - rhs.raw)
+    }
+}
+
 impl Amount {
     pub fn to_string_dec(self) -> String {
         self.raw.to_string()

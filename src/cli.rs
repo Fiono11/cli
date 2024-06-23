@@ -177,7 +177,13 @@ impl Cli {
                     .write_all(signing_commitments_json.as_bytes())
                     .unwrap();
             }
-            Commands::FrostRound2 { files } => {
+            Commands::FrostRound2 {
+                action,
+                amount,
+                destination,
+                files,
+                rpc_url,
+            } => {
                 let file_path: std::path::PathBuf = Path::new(&files).into();
 
                 let signing_commitments_string =
@@ -238,8 +244,11 @@ impl Cli {
                 let mut previous = [0; 32];
                 previous.copy_from_slice(&previous_decoded);*/
 
-                let rpc_client =
-                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap());
+                let rpc_client = if let Some(url) = rpc_url {
+                    RpcClient::new(Url::from_str(url).unwrap())
+                } else {
+                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
+                };
 
                 let account_history: serde_json::Value = rpc_client
                     .account_history(
@@ -275,35 +284,6 @@ impl Cli {
                 let link_nano = "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q";
                 let link_decoded = Account::decode_account(link_nano).unwrap();
 
-                let receivable = rpc_client
-                    .receivable(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                        1,
-                    )
-                    .await
-                    .unwrap();
-
-                println!("{:?}", receivable);
-
-                let blocks = receivable
-                    .get("blocks")
-                    .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                    .as_object()
-                    .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
-
-                let (key, value) = blocks.iter().next().unwrap();
-
-                let link_decoded = hex::decode(key).unwrap();
-                let mut link = [0; 32];
-                link.copy_from_slice(&link_decoded);
-
-                println!("balance: {:?}", value.as_str().unwrap());
-
-                println!(
-                    "{:?}",
-                    Amount::raw(str::parse(&value.as_str().unwrap()).unwrap()),
-                );
-
                 let account_balance = rpc_client
                     .account_balance(
                         "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
@@ -311,15 +291,48 @@ impl Cli {
                     .await
                     .unwrap();
 
-                let balance = account_balance.get("balance").unwrap();
+                let balance_rpc = account_balance.get("balance").unwrap();
 
-                //let mut link = [0; 32];
-                //link.copy_from_slice(&link_decoded);
+                let mut balance = Amount::raw(0);
+
+                let mut link = [0; 32];
+
+                if action == "receive" {
+                    let receivable = rpc_client
+                        .receivable(
+                            "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
+                            1,
+                        )
+                        .await
+                        .unwrap();
+
+                    println!("{:?}", receivable);
+
+                    let blocks = receivable
+                        .get("blocks")
+                        .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
+                        .as_object()
+                        .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
+
+                    let (key, value) = blocks.iter().next().unwrap();
+
+                    let link_decoded = hex::decode(key).unwrap();
+                    link.copy_from_slice(&link_decoded);
+
+                    balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
+                        + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                } else {
+                    let link_decoded =
+                        Account::decode_account(destination.as_ref().unwrap()).unwrap();
+                    link.copy_from_slice(&link_decoded.0);
+
+                    balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                        - Amount::raw(amount.unwrap())
+                }
 
                 let hashables = StateHashables {
                     previous: BlockHash(previous),
-                    balance: Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                        + Amount::raw(str::parse(balance.as_str().unwrap()).unwrap()),
+                    balance,
                     link: Link(link),
                     representative: threshold_account,
                     account: threshold_account,
@@ -346,7 +359,13 @@ impl Cli {
                     .write_all(signing_package_json.as_bytes())
                     .unwrap();
             }
-            Commands::FrostAggregate { files } => {
+            Commands::FrostAggregate {
+                action,
+                amount,
+                destination,
+                files,
+                rpc_url,
+            } => {
                 let file_path: std::path::PathBuf = Path::new(&files).into();
 
                 let signing_packages_string =
@@ -418,8 +437,11 @@ impl Cli {
                 //let mut link = [0; 32];
                 //link.copy_from_slice(&link_decoded.0);
 
-                let rpc_client =
-                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap());
+                let rpc_client = if let Some(url) = rpc_url {
+                    RpcClient::new(Url::from_str(url).unwrap())
+                } else {
+                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
+                };
 
                 let account_history: serde_json::Value = rpc_client
                     .account_history(
@@ -469,32 +491,14 @@ impl Cli {
                 let mut link = [0; 32];
                 link.copy_from_slice(&link_decoded);*/
 
-                let receivable = rpc_client
-                    .receivable(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                        1,
-                    )
-                    .await
-                    .unwrap();
+                //let link_decoded = hex::decode(key).unwrap();
+                //let mut link = [0; 32];
+                //link.copy_from_slice(&link_decoded);
 
-                println!("{:?}", receivable);
-
-                let blocks = receivable
-                    .get("blocks")
-                    .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                    .as_object()
-                    .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
-
-                let (key, value) = blocks.iter().next().unwrap();
-
-                let link_decoded = hex::decode(key).unwrap();
-                let mut link = [0; 32];
-                link.copy_from_slice(&link_decoded);
-
-                println!(
-                    "{:?}",
-                    Amount::decode_hex(value.as_str().unwrap()).unwrap().raw
-                );
+                //println!(
+                //"{:?}",
+                //Amount::decode_hex(value.as_str().unwrap()).unwrap().raw
+                //);
 
                 let account_balance = rpc_client
                     .account_balance(
@@ -503,15 +507,48 @@ impl Cli {
                     .await
                     .unwrap();
 
-                let balance = account_balance.get("balance").unwrap();
+                let balance_rpc = account_balance.get("balance").unwrap();
 
-                //let mut link = [0; 32];
-                //link.copy_from_slice(&link_decoded);
+                let mut balance = Amount::raw(0);
+
+                let mut link = [0; 32];
+
+                if action == "receive" {
+                    let receivable = rpc_client
+                        .receivable(
+                            "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
+                            1,
+                        )
+                        .await
+                        .unwrap();
+
+                    println!("{:?}", receivable);
+
+                    let blocks = receivable
+                        .get("blocks")
+                        .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
+                        .as_object()
+                        .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
+
+                    let (key, value) = blocks.iter().next().unwrap();
+
+                    let link_decoded = hex::decode(key).unwrap();
+                    link.copy_from_slice(&link_decoded);
+
+                    balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
+                        + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                } else {
+                    let link_decoded =
+                        Account::decode_account(destination.as_ref().unwrap()).unwrap();
+                    link.copy_from_slice(&link_decoded.0);
+
+                    balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                        - Amount::raw(amount.unwrap())
+                }
 
                 let hashables = StateHashables {
                     previous: BlockHash(previous),
-                    balance: Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                        + Amount::raw(str::parse(balance.as_str().unwrap()).unwrap()),
+                    balance,
                     link: Link(link),
                     representative: threshold_account,
                     account: threshold_account,
@@ -567,7 +604,7 @@ impl Cli {
                 //println!("hash: {:?}", block.hash());
 
                 let process = rpc_client
-                    .process("receive", &serde_json::to_string_pretty(&block).unwrap())
+                    .process(action, &serde_json::to_string_pretty(&block).unwrap())
                     .await
                     .unwrap();
 
@@ -602,10 +639,26 @@ pub enum Commands {
     },
     FrostRound2 {
         #[arg(long)]
+        action: String,
+        #[arg(long)]
+        amount: Option<u128>,
+        #[arg(long)]
+        destination: Option<String>,
+        #[arg(long)]
         files: String,
+        #[arg(long)]
+        rpc_url: Option<String>,
     },
     FrostAggregate {
         #[arg(long)]
+        action: String,
+        #[arg(long)]
+        amount: Option<u128>,
+        #[arg(long)]
+        destination: Option<String>,
+        #[arg(long)]
         files: String,
+        #[arg(long)]
+        rpc_url: Option<String>,
     },
 }
