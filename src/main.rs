@@ -1,13 +1,16 @@
+mod cli;
+
 use anyhow::bail;
 use anyhow::Result;
 use blake2::digest::Update;
 use blake2::digest::VariableOutput;
 use blake2::Blake2bVar;
 use clap::{Parser, Subcommand};
+use cli::Cli;
 use ed25519_dalek::VerifyingKey;
 use olaf::{
     frost::{aggregate, SigningCommitments, SigningNonces, SigningPackage},
-    simplpedpop::{AllMessage, SPPOutput},
+    simplpedpop::{AllMessage, SPPOutput, SPPOutputMessage},
     SigningKeypair,
 };
 use primitive_types::U512;
@@ -16,6 +19,9 @@ use reqwest::Url;
 use serde::ser::SerializeStruct;
 use serde_json::from_str;
 use serde_json::json;
+use serde_json::Map;
+use serde_json::Value;
+use std::num::ParseIntError;
 use std::str::FromStr;
 use std::time::Duration;
 use std::{
@@ -37,301 +43,90 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("keypair2 pk: {:?}", keypair2.verifying_key.as_bytes());*/
 
     let cli = Cli::parse();
-
-    match cli.command {
-        Commands::SimplpedpopRound1 { files } => {
-            let file_path: std::path::PathBuf = Path::new(&files).into();
-
-            let secret_key_string =
-                fs::read_to_string(file_path.join("contributor_secret_key.json")).unwrap();
-
-            let secret_key_bytes: Vec<u8> = from_str(&secret_key_string).unwrap();
-
-            let mut secret_key = [0; 32];
-            secret_key.copy_from_slice(&secret_key_bytes);
-
-            let mut keypair = SigningKeypair::from_secret_key(&secret_key);
-
-            let recipients_string = fs::read_to_string(file_path.join("recipients.json")).unwrap();
-
-            let recipients_bytes: Vec<Vec<u8>> = from_str(&recipients_string).unwrap();
-
-            let recipients: Vec<VerifyingKey> = recipients_bytes
-                .iter()
-                .map(|recipient_bytes| {
-                    let mut recipient = [0; 32];
-                    recipient.copy_from_slice(&recipient_bytes);
-                    VerifyingKey::from_bytes(&recipient).unwrap()
-                })
-                .collect();
-
-            let all_message: AllMessage =
-                keypair.simplpedpop_contribute_all(2, recipients).unwrap();
-
-            let all_message_bytes: Vec<u8> = all_message.to_bytes();
-
-            let all_message_vec: Vec<Vec<u8>> = vec![all_message_bytes];
-
-            let all_message_json = serde_json::to_string_pretty(&all_message_vec).unwrap();
-
-            let mut all_message_file = File::create(file_path.join("all_messages.json")).unwrap();
-
-            all_message_file
-                .write_all(&all_message_json.as_bytes())
-                .unwrap();
-        }
-        Commands::SimplpedpopRound2 { files } => {
-            let file_path: std::path::PathBuf = Path::new(&files).into();
-
-            let secret_key_string =
-                fs::read_to_string(file_path.join("contributor_secret_key.json")).unwrap();
-
-            let secret_key_bytes: Vec<u8> = from_str(&secret_key_string).unwrap();
-
-            let mut secret_key = [0; 32];
-            secret_key.copy_from_slice(&secret_key_bytes);
-
-            let mut keypair = SigningKeypair::from_secret_key(&secret_key);
-
-            let all_messages_string =
-                fs::read_to_string(file_path.join("all_messages.json")).unwrap();
-
-            let all_messages_bytes: Vec<Vec<u8>> = from_str(&all_messages_string).unwrap();
-
-            let all_messages: Vec<AllMessage> = all_messages_bytes
-                .iter()
-                .map(|all_message| AllMessage::from_bytes(all_message).unwrap())
-                .collect();
-
-            let simplpedpop = keypair.simplpedpop_recipient_all(&all_messages).unwrap();
-
-            let spp_output = simplpedpop.0.clone();
-
-            let output_json = serde_json::to_string_pretty(&spp_output.to_bytes()).unwrap();
-
-            let mut output_file = File::create(file_path.join("spp_output.json")).unwrap();
-
-            output_file.write_all(&output_json.as_bytes()).unwrap();
-
-            let signing_share = simplpedpop.1;
-
-            let signing_share_json =
-                serde_json::to_string_pretty(&signing_share.to_bytes().to_vec()).unwrap();
-
-            let mut signing_share_file =
-                File::create(file_path.join("signing_share.json")).unwrap();
-
-            signing_share_file
-                .write_all(&signing_share_json.as_bytes())
-                .unwrap();
-
-            let threshold_public_key = simplpedpop.0.spp_output.threshold_public_key;
-
-            let threshold_public_key_json =
-                serde_json::to_string_pretty(&threshold_public_key.0.to_bytes()).unwrap();
-
-            let mut threshold_public_key_file =
-                File::create(file_path.join("threshold_public_key.json")).unwrap();
-
-            threshold_public_key_file
-                .write_all(threshold_public_key_json.as_bytes())
-                .unwrap();
-        }
-
-        Commands::FrostRound1 { files } => {
-            let file_path: std::path::PathBuf = Path::new(&files).into();
-
-            let signing_share_string =
-                fs::read_to_string(file_path.join("signing_share.json")).unwrap();
-
-            let signing_share_vec: Vec<u8> = from_str(&signing_share_string).unwrap();
-
-            let mut signing_share_bytes = [0; 64];
-            signing_share_bytes.copy_from_slice(&signing_share_vec);
-
-            let signing_share = SigningKeypair::from_bytes(&signing_share_bytes).unwrap();
-
-            let (signing_nonces, signing_commitments) = signing_share.commit(&mut OsRng);
-
-            let signing_nonces_json =
-                serde_json::to_string_pretty(&signing_nonces.to_bytes().to_vec()).unwrap();
-
-            let mut signing_nonces_file =
-                File::create(file_path.join("signing_nonces.json")).unwrap();
-
-            signing_nonces_file
-                .write_all(signing_nonces_json.as_bytes())
-                .unwrap();
-
-            let signing_commitments_vec = vec![signing_commitments.to_bytes().to_vec()];
-
-            let signing_commitments_json =
-                serde_json::to_string_pretty(&signing_commitments_vec).unwrap();
-
-            let mut signing_commitments_file =
-                File::create(file_path.join("signing_commitments.json")).unwrap();
-
-            signing_commitments_file
-                .write_all(signing_commitments_json.as_bytes())
-                .unwrap();
-        }
-        Commands::FrostRound2 { files } => {
-            let file_path: std::path::PathBuf = Path::new(&files).into();
-
-            let signing_commitments_string =
-                fs::read_to_string(Path::new(&files).join("signing_commitments.json")).unwrap();
-
-            let signing_commitments_bytes: Vec<Vec<u8>> =
-                from_str(&signing_commitments_string).unwrap();
-
-            let signing_commitments: Vec<SigningCommitments> = signing_commitments_bytes
-                .iter()
-                .map(|signing_commitments| {
-                    SigningCommitments::from_bytes(signing_commitments).unwrap()
-                })
-                .collect();
-
-            let signing_nonces_string =
-                fs::read_to_string(file_path.join("signing_nonces.json")).unwrap();
-
-            let signing_nonces_bytes: Vec<u8> = from_str(&signing_nonces_string).unwrap();
-
-            let signing_nonces = SigningNonces::from_bytes(&signing_nonces_bytes).unwrap();
-
-            let signing_share_string =
-                fs::read_to_string(file_path.join("signing_share.json")).unwrap();
-
-            let signing_share_vec: Vec<u8> = from_str(&signing_share_string).unwrap();
-
-            let mut signing_share_bytes = [0; 64];
-            signing_share_bytes.copy_from_slice(&signing_share_vec);
-
-            let signing_share = SigningKeypair::from_bytes(&signing_share_bytes).unwrap();
-
-            let output_string = fs::read_to_string(file_path.join("spp_output.json")).unwrap();
-
-            let output_bytes: Vec<u8> = from_str(&output_string).unwrap();
-            let spp_output = SPPOutput::from_bytes(&output_bytes).unwrap();
-
-            let source = BlockHash([0; 32]);
-            let representative = Account([0; 32]);
-            let account = Account([0; 32]);
-
-            let hashables = OpenHashables {
-                source,
-                representative,
-                account,
-            };
-
-            let hash = LazyBlockHash::new();
-            let tx_hash = hash.hash(&hashables).0;
-
-            let signing_package = signing_share
-                .sign(&tx_hash, &spp_output, &signing_commitments, &signing_nonces)
-                .unwrap();
-
-            let signing_packages_vec = vec![signing_package.to_bytes()];
-
-            let signing_package_json = serde_json::to_string_pretty(&signing_packages_vec).unwrap();
-
-            let mut signing_package_file =
-                File::create(file_path.join("signing_packages.json")).unwrap();
-
-            signing_package_file
-                .write_all(signing_package_json.as_bytes())
-                .unwrap();
-        }
-        Commands::FrostAggregate { files } => {
-            let file_path: std::path::PathBuf = Path::new(&files).into();
-
-            let signing_packages_string =
-                fs::read_to_string(file_path.join("signing_packages.json")).unwrap();
-
-            let signing_packages_bytes: Vec<Vec<u8>> = from_str(&signing_packages_string).unwrap();
-
-            /*let signing_packages: Vec<SigningPackage> = signing_packages_bytes
-            .iter()
-            .map(|signing_commitments| SigningPackage::from_bytes(signing_commitments).unwrap())
-            .collect();*/
-
-            //let signature = crate::Signature {
-            //bytes: aggregate(&signing_packages).unwrap().to_bytes(),
-            //};
-
-            let work = 0;
-
-            let source = BlockHash([0; 32]);
-            let representative = Account([0; 32]);
-            let account = Account([0; 32]);
-
-            let hashables = OpenHashables {
-                source,
-                representative,
-                account,
-            };
-
-            let hash = LazyBlockHash::new();
-
-            let rpc_client =
-                RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap());
-
-            /*let block = OpenBlock {
-            work,
-            signature,
-            hashables,
-            hash,
-            sideband: None,
-            };*/
-
-            /*rpc_client
-            .receive_block(
-                "wallet",
-                "account",
-                &serde_json::to_string_pretty(&block).unwrap(),
-            )
-            .await?;*/
-
-            let response = rpc_client
-                .account_info_rpc(
-                    "nano_1bnano1dnhc356frb1owg4mhi4r47j1i15yq8nuyyso8fg64ux9kdxzmae5g",
-                )
-                .await?;
-
-            println!("{:?}", response);
-        }
+    cli.run()
+}
+
+#[derive(Clone, Debug)]
+pub struct StateBlock {
+    pub work: u64,
+    pub signature: Signature,
+    pub hashables: StateHashables,
+    pub hash: LazyBlockHash,
+    pub sideband: Option<BlockSideband>,
+}
+
+impl StateBlock {
+    fn hash(&self) -> BlockHash {
+        self.hash.hash(&self.hashables)
     }
-    Ok(())
 }
 
-#[derive(Parser)]
-#[command(name = "app", about = "An application.", version = "1.0")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+impl From<&StateHashables> for BlockHash {
+    fn from(hashables: &StateHashables) -> Self {
+        let mut preamble = [0u8; 32];
+        preamble[31] = BlockType::State as u8;
+        BlockHashBuilder::new()
+            .update(preamble)
+            .update(hashables.account.0)
+            .update(hashables.previous.as_bytes())
+            .update(hashables.representative.0)
+            .update(hashables.balance.raw.to_be_bytes())
+            .update(hashables.link.as_bytes())
+            .build()
+    }
 }
 
-#[derive(Subcommand)]
-enum Commands {
-    SimplpedpopRound1 {
-        #[arg(long)]
-        files: String,
-    },
-    SimplpedpopRound2 {
-        #[arg(long)]
-        files: String,
-    },
-    FrostRound1 {
-        #[arg(long)]
-        files: String,
-    },
-    FrostRound2 {
-        #[arg(long)]
-        files: String,
-    },
-    FrostAggregate {
-        #[arg(long)]
-        files: String,
-    },
+#[repr(u8)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
+pub enum BlockType {
+    Invalid = 0,
+    NotABlock = 1,
+    LegacySend = 2,
+    LegacyReceive = 3,
+    LegacyOpen = 4,
+    LegacyChange = 5,
+    State = 6,
+}
+
+impl serde::Serialize for StateBlock {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Block", 9)?;
+        state.serialize_field("type", "state")?;
+        state.serialize_field("account", &self.hashables.account)?;
+        state.serialize_field("previous", &self.hashables.previous)?;
+        state.serialize_field("representative", &self.hashables.representative)?;
+        state.serialize_field("balance", &self.hashables.balance.to_string_dec())?;
+        state.serialize_field("link", &self.hashables.link.encode_hex())?;
+        state.serialize_field("link_as_account", &Account(self.hashables.link.0))?;
+        state.serialize_field("signature", &self.signature)?;
+        state.serialize_field("work", &to_hex_string(self.work))?;
+        state.end()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Default, Debug)]
+pub struct StateHashables {
+    // Account# / public key that operates this account
+    // Uses:
+    // Bulk signature validation in advance of further ledger processing
+    // Arranging uncomitted transactions by account
+    pub account: Account,
+
+    // Previous transaction in this chain
+    pub previous: BlockHash,
+
+    // Representative of this account
+    pub representative: Account,
+
+    // Current balance of this account
+    // Allows lookup of account balance simply by looking at the head block
+    pub balance: Amount,
+
+    // Link field contains source block_hash if receiving, destination account if sending
+    pub link: Link,
 }
 
 #[derive(Clone, Debug)]
@@ -371,6 +166,10 @@ impl OpenBlock {
             sideband: None,
         }
     }
+
+    fn hash(&self) -> BlockHash {
+        self.hash.hash(&self.hashables)
+    }
 }
 
 impl serde::Serialize for OpenBlock {
@@ -389,8 +188,44 @@ impl serde::Serialize for OpenBlock {
     }
 }
 
+struct Request<'a> {
+    action: &'a str,
+    json_block: &'a str,
+    subtype: &'a str,
+    block: &'a str,
+}
+
+impl<'a> serde::Serialize for Request<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Request", 4)?;
+        state.serialize_field("action", self.action)?;
+        state.serialize_field("json_block", self.json_block)?;
+        state.serialize_field("subtype", self.subtype)?;
+        state.serialize_field("block", self.block)?;
+        state.end()
+    }
+}
+
+impl<'a> Request<'a> {
+    fn new(subtype: &'a str, block: &'a str) -> Self {
+        Request {
+            action: "process",
+            json_block: "true",
+            subtype,
+            block,
+        }
+    }
+}
+
 pub fn to_hex_string(i: u64) -> String {
     format!("{:016X}", i)
+}
+
+pub fn u64_from_hex_str(s: impl AsRef<str>) -> Result<u64, ParseIntError> {
+    u64::from_str_radix(s.as_ref(), 16)
 }
 
 #[derive(Clone, Default, Debug)]
@@ -453,6 +288,29 @@ pub struct BlockDetails {
 #[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub struct Amount {
     raw: u128, // native endian!
+}
+
+impl std::ops::Add for Amount {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Amount::raw(self.raw + rhs.raw)
+    }
+}
+
+impl Amount {
+    pub fn to_string_dec(self) -> String {
+        self.raw.to_string()
+    }
+
+    pub fn decode_hex(s: impl AsRef<str>) -> Result<Self> {
+        let value = u128::from_str_radix(s.as_ref(), 16)?;
+        Ok(Amount::raw(value))
+    }
+
+    pub const fn raw(value: u128) -> Self {
+        Self { raw: value }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -529,6 +387,24 @@ impl BlockHashBuilder {
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Hash, Default, PartialOrd, Ord, Debug)]
+pub struct Link([u8; 32]);
+
+impl Link {
+    pub fn encode_hex(&self) -> String {
+        use std::fmt::Write;
+        let mut result = String::with_capacity(64);
+        for &byte in self.as_bytes() {
+            write!(&mut result, "{:02X}", byte).unwrap();
+        }
+        result
+    }
+
+    pub fn as_bytes(&'_ self) -> &'_ [u8; 32] {
+        &self.0
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Default, PartialOrd, Ord, Debug)]
 pub struct Account([u8; 32]);
 
 impl Account {
@@ -556,6 +432,88 @@ impl Account {
         blake.finalize_variable(&mut check).unwrap();
 
         check
+    }
+
+    pub fn decode_account(source: impl AsRef<str>) -> Result<Account> {
+        EncodedAccountStr(source.as_ref()).to_u512()?.to_account()
+    }
+}
+
+struct EncodedAccountStr<'a>(&'a str);
+
+impl<'a> EncodedAccountStr<'a> {
+    fn to_u512(&self) -> Result<EncodedAccountU512> {
+        //if !self.is_valid() {
+        //bail!("invalid account string");
+        //}
+
+        let mut number = U512::default();
+        for character in self.chars_after_prefix() {
+            match self.decode_byte(character) {
+                Some(byte) => {
+                    number <<= 5;
+                    number = number + byte;
+                }
+                None => bail!("invalid hex string"),
+            }
+        }
+        Ok(EncodedAccountU512(number))
+    }
+
+    fn decode_byte(&self, character: char) -> Option<u8> {
+        if character.is_ascii() {
+            let character = character as u8;
+            if (0x30..0x80).contains(&character) {
+                let byte: u8 = account_decode(character);
+                if byte != b'~' {
+                    return Some(byte);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn chars_after_prefix(&'_ self) -> impl Iterator<Item = char> + '_ {
+        self.0.chars().skip(5)
+    }
+}
+
+fn account_decode(value: u8) -> u8 {
+    let mut result = ACCOUNT_REVERSE[(value - 0x30) as usize] as u8;
+    if result != b'~' {
+        result -= 0x30;
+    }
+    result
+}
+
+const ACCOUNT_REVERSE: &[char] = &[
+    '~', '0', '~', '1', '2', '3', '4', '5', '6', '7', '~', '~', '~', '~', '~', '~', '~', '~', '~',
+    '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~',
+    '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '~', '8', '9', ':', ';', '<', '=', '>', '?',
+    '@', 'A', 'B', '~', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', '~', 'L', 'M', 'N', 'O', '~',
+    '~', '~', '~', '~',
+];
+
+struct EncodedAccountU512(U512);
+
+impl EncodedAccountU512 {
+    fn account_bytes(&self) -> [u8; 32] {
+        let mut bytes_512 = [0u8; 64];
+        (self.0 >> 40).to_big_endian(&mut bytes_512);
+        let mut bytes_256 = [0u8; 32];
+        bytes_256.copy_from_slice(&bytes_512[32..]);
+        bytes_256
+    }
+
+    fn to_account(&self) -> Result<Account> {
+        let account = Account(self.account_bytes());
+        /*if account.account_checksum() == self.checksum_bytes() {
+            Ok(account)
+        } else {
+            Err(anyhow!("invalid checksum"))
+            }*/
+        Ok(account)
     }
 }
 
@@ -647,6 +605,77 @@ impl RpcClient {
         }
 
         Ok(result)
+    }
+
+    /* {
+      "action": "process",
+      "json_block": "true",
+      "subtype": "send",
+      "block": {
+        "type": "state",
+        "account": "nano_1qato4k7z3spc8gq1zyd8xeqfbzsoxwo36a45ozbrxcatut7up8ohyardu1z",
+        "previous": "6CDDA48608C7843A0AC1122BDD46D9E20E21190986B19EAC23E7F33F2E6A6766",
+        "representative": "nano_3pczxuorp48td8645bs3m6c3xotxd3idskrenmi65rbrga5zmkemzhwkaznh",
+        "balance": "40200000001000000000000000000000000",
+        "link": "87434F8041869A01C8F6F263B87972D7BA443A72E0A97D7A3FD0CCC2358FD6F9",
+        "link_as_account": "nano_33t5by1653nt196hfwm5q3wq7oxtaix97r7bhox5zn8eratrzoqsny49ftsd",
+        "signature": "A5DB164F6B81648F914E49CAB533900C389FAAD64FBB24F6902F9261312B29F730D07E9BCCD21D918301419B4E05B181637CF8419ED4DCBF8EF2539EB2467F07",
+        "work": "000bc55b014e807d"
+      }
+    } */
+
+    pub async fn receivable(&self, account: &str, count: u32) -> Result<serde_json::Value> {
+        let request = json!({
+            "action": "receivable",
+            "account": account,
+            "count": count,
+            "threshold": 1,
+        });
+        println!("request: {:?}", request);
+        self.rpc_request(&request).await
+    }
+
+    pub async fn account_balance(&self, account: &str) -> Result<serde_json::Value> {
+        let request = json!({
+            "action": "account_balance",
+            "account": account,
+        });
+        println!("request: {:?}", request);
+        self.rpc_request(&request).await
+    }
+
+    pub async fn account_history(&self, account: &str, count: u32) -> Result<serde_json::Value> {
+        let request = json!({
+            "action": "account_history",
+            "account": account,
+            "count": count,
+        });
+        println!("request: {:?}", request);
+        self.rpc_request(&request).await
+    }
+
+    pub async fn work_generate(&self, hash: &str) -> Result<serde_json::Value> {
+        let request = json!({
+            "action": "work_generate",
+            "hash": hash,
+        });
+        println!("request: {:?}", request);
+        self.rpc_request(&request).await
+    }
+
+    pub async fn process(&self, subtype: &str, block: &str) -> Result<serde_json::Value> {
+        //let request = Request::new(subtype, block);
+        //let request_json = serde_json::to_value(&request)?;
+
+        let request_json = json!({
+            "action": "process",
+            "json_block": "false",
+            "subtype": subtype,
+            "block": block
+        });
+
+        println!("request: {:?}", request_json);
+        self.rpc_request(&request_json).await
     }
 
     pub async fn receive_block(&self, wallet: &str, destination: &str, block: &str) -> Result<()> {
