@@ -1,4 +1,29 @@
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+    str::FromStr,
+};
+
+use anyhow::Error;
 use clap::{Parser, Subcommand};
+use ed25519_dalek::VerifyingKey;
+use olaf::{
+    frost::{aggregate, SigningCommitments, SigningNonces, SigningPackage},
+    simplpedpop::{AllMessage, SPPOutputMessage},
+    SigningKeypair,
+};
+use rand_core::OsRng;
+use reqwest::Url;
+use serde_json::from_str;
+
+use crate::{
+    rpc::RpcClient,
+    structs::{
+        u64_from_hex_str, Account, Amount, BlockHash, LazyBlockHash, Link, Signature, StateBlock,
+        StateHashables,
+    },
+};
 
 #[derive(Parser)]
 #[command(name = "app", about = "An application.", version = "1.0")]
@@ -8,8 +33,8 @@ pub struct Cli {
 }
 
 impl Cli {
-    pub fn run(&self) -> Result<(), Box<dyn std::error::Error>> {
-        match self.command {
+    pub async fn run(&self) -> Result<(), Error> {
+        match &self.command {
             Commands::SimplpedpopRound1 { files } => {
                 let file_path: std::path::PathBuf = Path::new(&files).into();
 
@@ -337,7 +362,7 @@ impl Cli {
                     })
                     .collect();
 
-                let signature = crate::Signature {
+                let signature = Signature {
                     bytes: aggregate(&signing_packages).unwrap().to_bytes(),
                 };
 
