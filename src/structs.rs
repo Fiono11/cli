@@ -81,65 +81,6 @@ pub struct StateHashables {
     pub link: Link,
 }
 
-#[derive(Clone, Debug)]
-pub struct OpenBlock {
-    pub work: u64,
-    pub signature: Signature,
-    pub hashables: OpenHashables,
-    pub hash: LazyBlockHash,
-    pub sideband: Option<BlockSideband>,
-}
-
-impl OpenBlock {
-    pub fn new(
-        source: BlockHash,
-        representative: Account,
-        account: Account,
-        signing_share: &RawKey,
-        pub_key: &Account,
-        work: u64,
-    ) -> Self {
-        let hashables = OpenHashables {
-            source,
-            representative,
-            account,
-        };
-
-        let hash = LazyBlockHash::new();
-        let tx_hash = hash.hash(&hashables).0;
-        let signature = Signature { bytes: [0; 64] };
-        //let signature = sign_message(prv_key, pub_key, hash.hash(&hashables).0);
-
-        Self {
-            work,
-            signature,
-            hashables,
-            hash,
-            sideband: None,
-        }
-    }
-
-    fn hash(&self) -> BlockHash {
-        self.hash.hash(&self.hashables)
-    }
-}
-
-impl serde::Serialize for OpenBlock {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct("Block", 6)?;
-        state.serialize_field("type", "open")?;
-        state.serialize_field("source", &self.hashables.source)?;
-        state.serialize_field("representative", &self.hashables.representative)?;
-        state.serialize_field("account", &self.hashables.account)?;
-        state.serialize_field("work", &to_hex_string(self.work))?;
-        state.serialize_field("signature", &self.signature)?;
-        state.end()
-    }
-}
-
 pub fn to_hex_string(i: u64) -> String {
     format!("{:016X}", i)
 }

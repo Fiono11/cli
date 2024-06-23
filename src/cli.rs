@@ -179,6 +179,7 @@ impl Cli {
             }
             Commands::FrostRound2 {
                 action,
+                origin,
                 amount,
                 destination,
                 files,
@@ -222,27 +223,7 @@ impl Cli {
                 let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
                 let spp_output = spp_output_message.spp_output;
 
-                //let source_string = fs::read_to_string(file_path.join("source.json")).unwrap();
-
-                let hex =
-                    hex::decode("00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C")
-                        .unwrap();
-
-                //let source_bytes: Vec<u8> = from_str(&source_string).unwrap();
-                let mut bytes = [0; 32];
-                bytes.copy_from_slice(&hex);
-
                 let threshold_account = Account(spp_output.threshold_public_key.0.to_bytes());
-
-                println!("{:?}", threshold_account.encode_account());
-
-                let source = BlockHash(bytes);
-
-                //let previous_str = "0000000000000000000000000000000000000000000000000000000000000000";
-                /*let previous_str = "5B34BD0C75449552CA02DA99E01A03DB6E9740EA345F8BE1260DD12026B2225B";
-                let previous_decoded = hex::decode(previous_str).unwrap();
-                let mut previous = [0; 32];
-                previous.copy_from_slice(&previous_decoded);*/
 
                 let rpc_client = if let Some(url) = rpc_url {
                     RpcClient::new(Url::from_str(url).unwrap())
@@ -250,13 +231,8 @@ impl Cli {
                     RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
                 };
 
-                let account_history: serde_json::Value = rpc_client
-                    .account_history(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                        1,
-                    )
-                    .await
-                    .unwrap();
+                let account_history: serde_json::Value =
+                    rpc_client.account_history(origin, 1).await.unwrap();
 
                 println!("account history: {:?}", account_history);
 
@@ -272,24 +248,11 @@ impl Cli {
                     .as_str()
                     .unwrap();
 
-                println!("str: {:?}", previous_str);
-
                 let previous_decoded = hex::decode(previous_str).unwrap();
                 let mut previous = [0; 32];
                 previous.copy_from_slice(&previous_decoded);
 
-                //let link_str = "00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C";
-                //let link_decoded = hex::decode(link_str).unwrap();
-
-                let link_nano = "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q";
-                let link_decoded = Account::decode_account(link_nano).unwrap();
-
-                let account_balance = rpc_client
-                    .account_balance(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                    )
-                    .await
-                    .unwrap();
+                let account_balance = rpc_client.account_balance(origin).await.unwrap();
 
                 let balance_rpc = account_balance.get("balance").unwrap();
 
@@ -298,13 +261,7 @@ impl Cli {
                 let mut link = [0; 32];
 
                 if action == "receive" {
-                    let receivable = rpc_client
-                        .receivable(
-                            "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                            1,
-                        )
-                        .await
-                        .unwrap();
+                    let receivable = rpc_client.receivable(origin, 1).await.unwrap();
 
                     println!("{:?}", receivable);
 
@@ -341,8 +298,6 @@ impl Cli {
                 let hash = LazyBlockHash::new();
                 let tx_hash = hash.hash(&hashables).0;
 
-                println!("hash: {:?}", tx_hash);
-
                 let signing_package = signing_share
                     .sign(&tx_hash, &spp_output, &signing_commitments, &signing_nonces)
                     .unwrap();
@@ -361,6 +316,7 @@ impl Cli {
             }
             Commands::FrostAggregate {
                 action,
+                origin,
                 amount,
                 destination,
                 files,
@@ -385,31 +341,6 @@ impl Cli {
                     bytes: aggregate(&signing_packages).unwrap().to_bytes(),
                 };
 
-                let hex_sig = hex::encode(signature.bytes);
-
-                println!("sig: {:?}", hex_sig);
-
-                // Hexadecimal string
-                //let hex_str = "de7c32d590b43708";
-                let hex_str = "181207ac52a4ac83";
-
-                // Decode the hexadecimal string to a byte array
-                let bytes = hex::decode(hex_str).unwrap();
-
-                // Ensure the byte array is exactly 8 bytes long
-                let bytes_array: [u8; 8] = bytes.try_into().expect("slice with incorrect length");
-
-                // Convert the byte array to a u64
-                let work = u64_from_hex_str(hex_str).unwrap();
-
-                let hex =
-                    hex::decode("00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C")
-                        .unwrap();
-
-                //let source_bytes: Vec<u8> = from_str(&source_string).unwrap();
-                let mut bytes = [0; 32];
-                bytes.copy_from_slice(&hex);
-
                 let output_string = fs::read_to_string(file_path.join("spp_output.json")).unwrap();
 
                 let output_bytes: Vec<u8> = from_str(&output_string).unwrap();
@@ -418,40 +349,14 @@ impl Cli {
 
                 let threshold_account = Account(spp_output.threshold_public_key.0.to_bytes());
 
-                println!("{:?}", threshold_account.encode_account());
-
-                let source = BlockHash(bytes);
-
-                //let previous_str = "0000000000000000000000000000000000000000000000000000000000000000";
-                let previous_str =
-                    "5B34BD0C75449552CA02DA99E01A03DB6E9740EA345F8BE1260DD12026B2225B";
-                let previous_decoded = hex::decode(previous_str).unwrap();
-                let mut previous = [0; 32];
-                previous.copy_from_slice(&previous_decoded);
-
-                let link_nano = "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q";
-
-                let link_str = "00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C";
-                //let link_decoded = hex::decode(link_str).unwrap();
-                let link_decoded = Account::decode_account(link_nano).unwrap();
-                //let mut link = [0; 32];
-                //link.copy_from_slice(&link_decoded.0);
-
                 let rpc_client = if let Some(url) = rpc_url {
                     RpcClient::new(Url::from_str(url).unwrap())
                 } else {
                     RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
                 };
 
-                let account_history: serde_json::Value = rpc_client
-                    .account_history(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                        1,
-                    )
-                    .await
-                    .unwrap();
-
-                println!("account history: {:?}", account_history);
+                let account_history: serde_json::Value =
+                    rpc_client.account_history(origin, 1).await.unwrap();
 
                 let previous_str = account_history
                     .get("history")
@@ -469,43 +374,7 @@ impl Cli {
                 let mut previous = [0; 32];
                 previous.copy_from_slice(&previous_decoded);
 
-                let receivable = rpc_client
-                    .receivable(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                        1,
-                    )
-                    .await
-                    .unwrap();
-
-                /*let link_str = receivable
-                    .get("blocks")
-                    .unwrap()
-                    .as_array()
-                    .unwrap()
-                    .get(0)
-                    .unwrap()
-                    .as_str()
-                    .unwrap();
-
-                let link_decoded = hex::decode(link_str).unwrap();
-                let mut link = [0; 32];
-                link.copy_from_slice(&link_decoded);*/
-
-                //let link_decoded = hex::decode(key).unwrap();
-                //let mut link = [0; 32];
-                //link.copy_from_slice(&link_decoded);
-
-                //println!(
-                //"{:?}",
-                //Amount::decode_hex(value.as_str().unwrap()).unwrap().raw
-                //);
-
-                let account_balance = rpc_client
-                    .account_balance(
-                        "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                    )
-                    .await
-                    .unwrap();
+                let account_balance = rpc_client.account_balance(origin).await.unwrap();
 
                 let balance_rpc = account_balance.get("balance").unwrap();
 
@@ -514,15 +383,7 @@ impl Cli {
                 let mut link = [0; 32];
 
                 if action == "receive" {
-                    let receivable = rpc_client
-                        .receivable(
-                            "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                            1,
-                        )
-                        .await
-                        .unwrap();
-
-                    println!("{:?}", receivable);
+                    let receivable = rpc_client.receivable(origin, 1).await.unwrap();
 
                     let blocks = receivable
                         .get("blocks")
@@ -565,8 +426,6 @@ impl Cli {
 
                 let work = u64_from_hex_str(work_str).unwrap();
 
-                println!("work: {}", work);
-
                 let block = StateBlock {
                     work,
                     signature,
@@ -575,48 +434,10 @@ impl Cli {
                     sideband: None,
                 };
 
-                /*{
-                "type": "state",
-                "account": "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                "previous": "0000000000000000000000000000000000000000000000000000000000000000",
-                "representative": "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                "balance": "100000000000000000000000000000000",
-                "link": "00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C",
-                "signature": "3c80be057a168959f78479b406ffca34542a2dc1a526f70813d010767706ee3819f04fddc9cee4f36805f9177832e9dd7b9eb66837c53f1ce4ee53e0459f5409",
-                "work": "de7c32d590b43708"
-                }*/
-
-                /*let json_data = r#"{
-                  "type": "open",
-                  "source": "00BE006B5F8E4133D63E5616727E1DDEC135ECD8AF71616A676369579E5A182C",
-                  "representative": "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                  "account": "nano_39cfzwuamk4ca4d9kawsyogc7pricoj361je4hxthm8xyu76r8bizhag4c3q",
-                  "work": "de7c32d590b43708",
-                  "signature": "ef7c078b0855ac5f2e79a85ca13e3708ebc0778372bffdfd514ee4efb3fbcb34816fa111cbc08751b7d5cfa99fade74c3929772fddf8f310ab06c8095a773c04"
-                }"#;
-
-                let open_block: OpenBlock = serde_json::from_str(json_data).unwrap();*/
-
-                let serialized = serde_json::to_string_pretty(&block).unwrap();
-
-                //println!("block: {:?}", serialized);
-
-                //println!("hash: {:?}", block.hash());
-
-                let process = rpc_client
+                rpc_client
                     .process(action, &serde_json::to_string_pretty(&block).unwrap())
                     .await
                     .unwrap();
-
-                println!("process: {:?}", process);
-
-                /*let response = rpc_client
-                .account_info_rpc(
-                    "nano_1bnano1dnhc356frb1owg4mhi4r47j1i15yq8nuyyso8fg64ux9kdxzmae5g",
-                )
-                .await?;
-
-                println!("{:?}", response);*/
             }
         }
         Ok(())
@@ -641,6 +462,8 @@ pub enum Commands {
         #[arg(long)]
         action: String,
         #[arg(long)]
+        origin: String,
+        #[arg(long)]
         amount: Option<u128>,
         #[arg(long)]
         destination: Option<String>,
@@ -652,6 +475,8 @@ pub enum Commands {
     FrostAggregate {
         #[arg(long)]
         action: String,
+        #[arg(long)]
+        origin: String,
         #[arg(long)]
         amount: Option<u128>,
         #[arg(long)]
