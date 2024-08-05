@@ -5,6 +5,7 @@ use cli::Cli;
 mod cli;
 mod rpc;
 mod structs;
+mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {

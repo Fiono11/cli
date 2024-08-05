@@ -44,7 +44,6 @@ impl RpcClient {
             "count": count,
             "threshold": 1,
         });
-        println!("request: {:?}", request);
         self.rpc_request(&request).await
     }
 
@@ -53,7 +52,6 @@ impl RpcClient {
             "action": "account_balance",
             "account": account,
         });
-        println!("request: {:?}", request);
         self.rpc_request(&request).await
     }
 
@@ -63,7 +61,6 @@ impl RpcClient {
             "account": account,
             "count": count,
         });
-        println!("request: {:?}", request);
         self.rpc_request(&request).await
     }
 
@@ -72,14 +69,10 @@ impl RpcClient {
             "action": "work_generate",
             "hash": hash,
         });
-        println!("request: {:?}", request);
         self.rpc_request(&request).await
     }
 
     pub async fn process(&self, subtype: &str, block: &str) -> Result<Value, Error> {
-        //let request = Request::new(subtype, block);
-        //let request_json = serde_json::to_value(&request)?;
-
         let request_json = json!({
             "action": "process",
             "json_block": "false",
@@ -87,7 +80,6 @@ impl RpcClient {
             "block": block
         });
 
-        println!("request: {:?}", request_json);
         self.rpc_request(&request_json).await
     }
 

@@ -1,27 +1,25 @@
 use crate::{
-    rpc::RpcClient,
     structs::{
-        u64_from_hex_str, Account, Amount, BlockHash, LazyBlockHash, Link, Signature, StateBlock,
+        u64_from_hex_str, Account, BlockHash, LazyBlockHash, Link, Signature, StateBlock,
         StateHashables,
     },
+    utils::{get_balance, get_previous, get_rpc_client, handle_receive, handle_send, load_files},
 };
 use anyhow::Error;
 use clap::{Parser, Subcommand};
 use ed25519_dalek::VerifyingKey;
 use olaf::{
-    frost::{aggregate, SigningCommitments, SigningNonces, SigningPackage},
+    frost::{aggregate, SigningPackage},
     simplpedpop::{AllMessage, SPPOutputMessage},
     SigningKeypair,
 };
 use rand_core::OsRng;
-use reqwest::Url;
 use serde_json::from_str;
 use std::{
     fmt::{self},
     fs::{self, File},
     io::Write,
-    path::Path,
-    str::FromStr,
+    path::{Path, PathBuf},
 };
 
 #[derive(Parser)]
@@ -184,108 +182,42 @@ impl Cli {
                 files,
                 rpc_url,
             } => {
-                let file_path: std::path::PathBuf = Path::new(&files).into();
+                let file_path: PathBuf = Path::new(&files).into();
+                let (signing_commitments, signing_nonces, signing_share, spp_output_message) =
+                    load_files(&file_path)?;
 
-                let signing_commitments_string =
-                    fs::read_to_string(Path::new(&files).join("signing_commitments.json")).unwrap();
+                let threshold_account = Account(
+                    spp_output_message
+                        .spp_output
+                        .threshold_public_key
+                        .0
+                        .to_bytes(),
+                );
+                let rpc_client = get_rpc_client(rpc_url.clone()).await;
 
-                let signing_commitments_bytes: Vec<Vec<u8>> =
-                    from_str(&signing_commitments_string).unwrap();
+                let (previous, _) = get_previous(&rpc_client, &origin).await?;
 
-                let signing_commitments: Vec<SigningCommitments> = signing_commitments_bytes
-                    .iter()
-                    .map(|signing_commitments| {
-                        SigningCommitments::from_bytes(signing_commitments).unwrap()
-                    })
-                    .collect();
+                let balance_rpc = get_balance(&rpc_client, origin).await?;
 
-                let signing_nonces_string =
-                    fs::read_to_string(file_path.join("signing_nonces.json")).unwrap();
-
-                let signing_nonces_bytes: Vec<u8> = from_str(&signing_nonces_string).unwrap();
-
-                let signing_nonces = SigningNonces::from_bytes(&signing_nonces_bytes).unwrap();
-
-                let signing_share_string =
-                    fs::read_to_string(file_path.join("signing_share.json")).unwrap();
-
-                let signing_share_vec: Vec<u8> = from_str(&signing_share_string).unwrap();
-
-                let mut signing_share_bytes = [0; 64];
-                signing_share_bytes.copy_from_slice(&signing_share_vec);
-
-                let signing_share = SigningKeypair::from_bytes(&signing_share_bytes).unwrap();
-
-                let output_string = fs::read_to_string(file_path.join("spp_output.json")).unwrap();
-
-                let output_bytes: Vec<u8> = from_str(&output_string).unwrap();
-                let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
-                let spp_output = spp_output_message.spp_output;
-
-                let threshold_account = Account(spp_output.threshold_public_key.0.to_bytes());
-
-                let rpc_client = if let Some(url) = rpc_url {
-                    RpcClient::new(Url::from_str(url).unwrap())
-                } else {
-                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
-                };
-
-                let account_history: serde_json::Value =
-                    rpc_client.account_history(origin, 1).await.unwrap();
-
-                let previous_str = account_history
-                    .get("history")
-                    .unwrap()
-                    .as_array()
-                    .unwrap()
-                    .first()
-                    .unwrap()
-                    .get("hash")
-                    .unwrap()
-                    .as_str()
-                    .unwrap();
-
-                let previous_decoded = hex::decode(previous_str).unwrap();
-                let mut previous = [0; 32];
-                previous.copy_from_slice(&previous_decoded);
-
-                let account_balance = rpc_client.account_balance(origin).await.unwrap();
-
-                let balance_rpc = account_balance.get("balance").unwrap();
-
-                let mut balance = Amount::raw(0);
-
+                let mut balance = balance_rpc;
                 let mut link = [0; 32];
 
                 match action {
                     Action::Receive => {
-                        let receivable = rpc_client.receivable(origin, 1).await.unwrap();
-
-                        let blocks = receivable
-                            .get("blocks")
-                            .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                            .as_object()
-                            .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
-
-                        let (key, value) = blocks.iter().next().unwrap();
-
-                        let link_decoded = hex::decode(key).unwrap();
-                        link.copy_from_slice(&link_decoded);
-
-                        balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                            + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap());
+                        let (new_balance, new_link) =
+                            handle_receive(&rpc_client, &origin, balance).await?;
+                        balance = new_balance;
+                        link = new_link;
                     }
                     Action::Send => {
-                        let link_decoded = Account::decode_account(
-                            destination
-                                .as_ref()
-                                .expect("A destination account is needed!"),
-                        )
-                        .expect("Destination account is not valid!");
-                        link.copy_from_slice(&link_decoded.0);
-
-                        balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                            - Amount::raw(amount.expect("A send amount is needed!"));
+                        let amount = amount.expect("A send amount is needed!");
+                        let destination = destination
+                            .as_ref()
+                            .expect("A destination account is needed!");
+                        let (new_balance, new_link) =
+                            handle_send(&rpc_client, &destination, amount, balance).await?;
+                        balance = new_balance;
+                        link = new_link;
                     }
                     _ => {}
                 }
@@ -302,20 +234,21 @@ impl Cli {
                 let tx_hash = hash.hash(&hashables).0;
 
                 let signing_package = signing_share
-                    .sign(&tx_hash, &spp_output, &signing_commitments, &signing_nonces)
+                    .sign(
+                        &tx_hash,
+                        &spp_output_message.spp_output,
+                        &signing_commitments,
+                        &signing_nonces,
+                    )
                     .unwrap();
 
                 let signing_packages_vec = vec![signing_package.to_bytes()];
 
                 let signing_package_json =
                     serde_json::to_string_pretty(&signing_packages_vec).unwrap();
-
                 let mut signing_package_file =
-                    File::create(file_path.join("signing_packages.json")).unwrap();
-
-                signing_package_file
-                    .write_all(signing_package_json.as_bytes())
-                    .unwrap();
+                    fs::File::create(file_path.join("signing_packages.json"))?;
+                signing_package_file.write_all(signing_package_json.as_bytes())?;
             }
             Commands::FrostAggregate {
                 action,
@@ -325,91 +258,57 @@ impl Cli {
                 files,
                 rpc_url,
             } => {
-                let file_path: std::path::PathBuf = Path::new(&files).into();
+                let file_path: PathBuf = Path::new(&files).into();
 
                 let signing_packages_string =
-                    fs::read_to_string(file_path.join("signing_packages.json")).unwrap();
-
+                    fs::read_to_string(file_path.join("signing_packages.json"))?;
                 let signing_packages_bytes: Vec<Vec<u8>> =
-                    from_str(&signing_packages_string).unwrap();
-
+                    serde_json::from_str(&signing_packages_string)?;
                 let signing_packages: Vec<SigningPackage> = signing_packages_bytes
                     .iter()
-                    .map(|signing_commitments| {
-                        SigningPackage::from_bytes(signing_commitments).unwrap()
-                    })
+                    .map(|bytes| SigningPackage::from_bytes(bytes).unwrap())
                     .collect();
 
                 let signature = Signature {
                     bytes: aggregate(&signing_packages).unwrap().to_bytes(),
                 };
 
-                let output_string = fs::read_to_string(file_path.join("spp_output.json")).unwrap();
-
-                let output_bytes: Vec<u8> = from_str(&output_string).unwrap();
+                let output_string = fs::read_to_string(file_path.join("spp_output.json"))?;
+                let output_bytes: Vec<u8> = serde_json::from_str(&output_string)?;
                 let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
-                let spp_output = spp_output_message.spp_output;
+                let threshold_account = Account(
+                    spp_output_message
+                        .spp_output
+                        .threshold_public_key
+                        .0
+                        .to_bytes(),
+                );
 
-                let threshold_account = Account(spp_output.threshold_public_key.0.to_bytes());
+                let rpc_client = get_rpc_client(rpc_url.clone()).await;
 
-                let rpc_client = if let Some(url) = rpc_url {
-                    RpcClient::new(Url::from_str(url).unwrap())
-                } else {
-                    RpcClient::new(Url::from_str("https://rpcproxy.bnano.info/proxy").unwrap())
-                };
+                let (previous, previous_str) = get_previous(&rpc_client, &origin).await?;
 
-                let account_history: serde_json::Value =
-                    rpc_client.account_history(origin, 1).await.unwrap();
+                let balance_rpc = get_balance(&rpc_client, origin).await?;
 
-                let previous_str = account_history
-                    .get("history")
-                    .unwrap()
-                    .as_array()
-                    .unwrap()
-                    .first()
-                    .unwrap()
-                    .get("hash")
-                    .unwrap()
-                    .as_str()
-                    .unwrap();
-
-                let previous_decoded = hex::decode(previous_str).unwrap();
-                let mut previous = [0; 32];
-                previous.copy_from_slice(&previous_decoded);
-
-                let account_balance = rpc_client.account_balance(origin).await.unwrap();
-
-                let balance_rpc = account_balance.get("balance").unwrap();
-
-                let mut balance = Amount::raw(0);
-
+                let mut balance = balance_rpc;
                 let mut link = [0; 32];
 
                 match action {
                     Action::Receive => {
-                        let receivable = rpc_client.receivable(origin, 1).await.unwrap();
-
-                        let blocks = receivable
-                            .get("blocks")
-                            .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                            .as_object()
-                            .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
-
-                        let (key, value) = blocks.iter().next().unwrap();
-
-                        let link_decoded = hex::decode(key).unwrap();
-                        link.copy_from_slice(&link_decoded);
-
-                        balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                            + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap());
+                        let (new_balance, new_link) =
+                            handle_receive(&rpc_client, &origin, balance).await?;
+                        balance = new_balance;
+                        link = new_link;
                     }
                     Action::Send => {
-                        let link_decoded =
-                            Account::decode_account(destination.as_ref().unwrap()).unwrap();
-                        link.copy_from_slice(&link_decoded.0);
-
-                        balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                            - Amount::raw(amount.unwrap());
+                        let amount = amount.expect("A send amount is needed!");
+                        let destination = destination
+                            .as_ref()
+                            .expect("A destination account is needed!");
+                        let (new_balance, new_link) =
+                            handle_send(&rpc_client, &destination, amount, balance).await?;
+                        balance = new_balance;
+                        link = new_link;
                     }
                     _ => {}
                 }
@@ -423,12 +322,9 @@ impl Cli {
                 };
 
                 let hash = LazyBlockHash::new();
-
-                let response = rpc_client.work_generate(previous_str).await.unwrap();
-
+                let response = rpc_client.work_generate(&previous_str).await?;
                 let work_str = response.get("work").unwrap().as_str().unwrap();
-
-                let work = u64_from_hex_str(work_str).unwrap();
+                let work = u64_from_hex_str(work_str)?;
 
                 let block = StateBlock {
                     work,
@@ -443,8 +339,7 @@ impl Cli {
                         &action.to_string(),
                         &serde_json::to_string_pretty(&block).unwrap(),
                     )
-                    .await
-                    .unwrap();
+                    .await?;
             }
         }
         Ok(())
