@@ -1,10 +1,10 @@
-use std::{
-    fs::{self, File},
-    io::Write,
-    path::Path,
-    str::FromStr,
+use crate::{
+    rpc::RpcClient,
+    structs::{
+        u64_from_hex_str, Account, Amount, BlockHash, LazyBlockHash, Link, Signature, StateBlock,
+        StateHashables,
+    },
 };
-
 use anyhow::Error;
 use clap::{Parser, Subcommand};
 use ed25519_dalek::VerifyingKey;
@@ -16,13 +16,12 @@ use olaf::{
 use rand_core::OsRng;
 use reqwest::Url;
 use serde_json::from_str;
-
-use crate::{
-    rpc::RpcClient,
-    structs::{
-        u64_from_hex_str, Account, Amount, BlockHash, LazyBlockHash, Link, Signature, StateBlock,
-        StateHashables,
-    },
+use std::{
+    fmt::{self},
+    fs::{self, File},
+    io::Write,
+    path::Path,
+    str::FromStr,
 };
 
 #[derive(Parser)]
@@ -234,8 +233,6 @@ impl Cli {
                 let account_history: serde_json::Value =
                     rpc_client.account_history(origin, 1).await.unwrap();
 
-                println!("account history: {:?}", account_history);
-
                 let previous_str = account_history
                     .get("history")
                     .unwrap()
@@ -260,31 +257,37 @@ impl Cli {
 
                 let mut link = [0; 32];
 
-                if action == "receive" {
-                    let receivable = rpc_client.receivable(origin, 1).await.unwrap();
+                match action {
+                    Action::Receive => {
+                        let receivable = rpc_client.receivable(origin, 1).await.unwrap();
 
-                    println!("{:?}", receivable);
+                        let blocks = receivable
+                            .get("blocks")
+                            .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
+                            .as_object()
+                            .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
 
-                    let blocks = receivable
-                        .get("blocks")
-                        .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                        .as_object()
-                        .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
+                        let (key, value) = blocks.iter().next().unwrap();
 
-                    let (key, value) = blocks.iter().next().unwrap();
+                        let link_decoded = hex::decode(key).unwrap();
+                        link.copy_from_slice(&link_decoded);
 
-                    let link_decoded = hex::decode(key).unwrap();
-                    link.copy_from_slice(&link_decoded);
+                        balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
+                            + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap());
+                    }
+                    Action::Send => {
+                        let link_decoded = Account::decode_account(
+                            destination
+                                .as_ref()
+                                .expect("A destination account is needed!"),
+                        )
+                        .expect("Destination account is not valid!");
+                        link.copy_from_slice(&link_decoded.0);
 
-                    balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                        + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                } else {
-                    let link_decoded =
-                        Account::decode_account(destination.as_ref().unwrap()).unwrap();
-                    link.copy_from_slice(&link_decoded.0);
-
-                    balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                        - Amount::raw(amount.unwrap())
+                        balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                            - Amount::raw(amount.expect("A send amount is needed!"));
+                    }
+                    _ => {}
                 }
 
                 let hashables = StateHashables {
@@ -382,29 +385,33 @@ impl Cli {
 
                 let mut link = [0; 32];
 
-                if action == "receive" {
-                    let receivable = rpc_client.receivable(origin, 1).await.unwrap();
+                match action {
+                    Action::Receive => {
+                        let receivable = rpc_client.receivable(origin, 1).await.unwrap();
 
-                    let blocks = receivable
-                        .get("blocks")
-                        .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
-                        .as_object()
-                        .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
+                        let blocks = receivable
+                            .get("blocks")
+                            .ok_or_else(|| anyhow::anyhow!("Missing blocks field"))?
+                            .as_object()
+                            .ok_or_else(|| anyhow::anyhow!("Blocks field is not an object"))?;
 
-                    let (key, value) = blocks.iter().next().unwrap();
+                        let (key, value) = blocks.iter().next().unwrap();
 
-                    let link_decoded = hex::decode(key).unwrap();
-                    link.copy_from_slice(&link_decoded);
+                        let link_decoded = hex::decode(key).unwrap();
+                        link.copy_from_slice(&link_decoded);
 
-                    balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
-                        + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                } else {
-                    let link_decoded =
-                        Account::decode_account(destination.as_ref().unwrap()).unwrap();
-                    link.copy_from_slice(&link_decoded.0);
+                        balance = Amount::raw(str::parse(&value.as_str().unwrap()).unwrap())
+                            + Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap());
+                    }
+                    Action::Send => {
+                        let link_decoded =
+                            Account::decode_account(destination.as_ref().unwrap()).unwrap();
+                        link.copy_from_slice(&link_decoded.0);
 
-                    balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
-                        - Amount::raw(amount.unwrap())
+                        balance = Amount::raw(str::parse(balance_rpc.as_str().unwrap()).unwrap())
+                            - Amount::raw(amount.unwrap());
+                    }
+                    _ => {}
                 }
 
                 let hashables = StateHashables {
@@ -416,9 +423,6 @@ impl Cli {
                 };
 
                 let hash = LazyBlockHash::new();
-                let tx_hash = hash.hash(&hashables).0;
-
-                println!("hash: {:?}", tx_hash);
 
                 let response = rpc_client.work_generate(previous_str).await.unwrap();
 
@@ -435,7 +439,10 @@ impl Cli {
                 };
 
                 rpc_client
-                    .process(action, &serde_json::to_string_pretty(&block).unwrap())
+                    .process(
+                        &action.to_string(),
+                        &serde_json::to_string_pretty(&block).unwrap(),
+                    )
                     .await
                     .unwrap();
             }
@@ -460,7 +467,7 @@ pub enum Commands {
     },
     FrostRound2 {
         #[arg(long)]
-        action: String,
+        action: Action,
         #[arg(long)]
         origin: String,
         #[arg(long)]
@@ -474,7 +481,7 @@ pub enum Commands {
     },
     FrostAggregate {
         #[arg(long)]
-        action: String,
+        action: Action,
         #[arg(long)]
         origin: String,
         #[arg(long)]
@@ -486,4 +493,24 @@ pub enum Commands {
         #[arg(long)]
         rpc_url: Option<String>,
     },
+}
+
+#[derive(clap::ValueEnum, Clone)]
+pub enum Action {
+    Send,
+    Receive,
+    Open,
+    Change,
+}
+
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let action_str = match self {
+            Action::Send => "send",
+            Action::Receive => "receive",
+            Action::Open => "open",
+            Action::Change => "change",
+        };
+        write!(f, "{}", action_str)
+    }
 }
