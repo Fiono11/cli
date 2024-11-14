@@ -1,8 +1,10 @@
 use core::fmt;
+use hex::FromHexError;
 use schnorrkel::{
     olaf::{multisig::errors::MultiSigError, simplpedpop::errors::SPPError},
     SignatureError,
 };
+use sp_core::crypto::PublicError;
 use subxt::Error as SubxtError;
 
 #[derive(Debug)]
@@ -13,6 +15,8 @@ pub enum CliError {
     Signature(SignatureError),
     Subxt(SubxtError),
     SimplPedPop(SPPError),
+    Hex(FromHexError),
+    Account(PublicError)
 }
 
 impl fmt::Display for CliError {
@@ -24,6 +28,8 @@ impl fmt::Display for CliError {
             CliError::Signature(err) => write!(f, "Signature Error: {}", err),
             CliError::Subxt(err) => write!(f, "Subxt Error: {}", err),
             CliError::SimplPedPop(err) => write!(f, "SimplPedPop Error: {:?}", err),
+            CliError::Hex(err) => write!(f, "Hex Error: {:?}", err),
+            CliError::Account(err) => write!(f, "Account Error: {:?}", err),
         }
     }
 }
@@ -61,5 +67,17 @@ impl From<SubxtError> for CliError {
 impl From<SPPError> for CliError {
     fn from(error: SPPError) -> Self {
         CliError::SimplPedPop(error)
+    }
+}
+
+impl From<FromHexError> for CliError {
+    fn from(error: FromHexError) -> Self {
+        CliError::Hex(error)
+    }
+}
+
+impl From<PublicError> for CliError {
+    fn from(error: PublicError) -> Self {
+        CliError::Account(error)
     }
 }

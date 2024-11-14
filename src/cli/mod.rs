@@ -1,3 +1,6 @@
+pub mod commands;
+pub mod errors;
+
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -28,5 +31,21 @@ pub enum Commands {
     MultisigAggregate {
         #[arg(long)]
         files: String,
+    },
+    SubmitTransaction {
+        #[arg(long)]
+        files: String,
+        #[arg(long, default_value = "ws://127.0.0.1:9944")]
+        url: String,
+        #[arg(long, default_value = "System")]
+        pallet: String,
+        #[arg(long, default_value = "remark")]
+        function: String,
+        #[arg(
+            long,
+            default_value = "[]",
+            help = "Call arguments in JSON array format"
+        )]
+        call_args: String,
     },
 }

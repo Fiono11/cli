@@ -15,10 +15,6 @@ impl FilePaths {
         self.base.join("contributor_secret_key.json")
     }
 
-    pub fn recipient_secret_key(&self) -> PathBuf {
-        self.base.join("recipient_secret_key.json")
-    }
-
     pub fn recipients(&self) -> PathBuf {
         self.base.join("recipients.json")
     }
