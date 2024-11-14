@@ -50,4 +50,8 @@ impl FilePaths {
     pub fn signature(&self) -> PathBuf {
         self.base.join("signature.json")
     }
+
+    pub fn extrinsic_info(&self) -> PathBuf {
+        self.base.join("extrinsic_info.json")
+    }
 }

@@ -1,5 +1,5 @@
 use crate::{cli::errors::CliError, files::FilePaths};
-use schnorrkel::{olaf::simplpedpop::AllMessage, Keypair, MiniSecretKey, PublicKey, SecretKey};
+use schnorrkel::{olaf::simplpedpop::AllMessage, MiniSecretKey, PublicKey};
 use serde_json::from_str;
 use subxt::utils::AccountId32;
 use tokio::{
@@ -9,7 +9,7 @@ use tokio::{
 use hex;
 use sp_core::crypto::Ss58Codec; 
 
-pub async fn simplpedpop_round1(files: String) -> Result<(), CliError> {
+pub async fn generate_threshold_public_key_round1(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
     // Read and parse the secret key from hex string
@@ -19,9 +19,6 @@ pub async fn simplpedpop_round1(files: String) -> Result<(), CliError> {
     let secret_key_hex = secret_key_string.strip_prefix("0x").unwrap_or(secret_key_string);
     let secret_key_bytes = hex::decode(secret_key_hex)?;
     let keypair = MiniSecretKey::from_bytes(&secret_key_bytes)?.expand_to_keypair(schnorrkel::ExpansionMode::Ed25519);
-
-    let account_id = AccountId32(keypair.public.to_bytes());
-    println!("pk: {:?}", account_id.to_string());
 
     // Read and parse the recipients from JSON array of strings
     let recipients_file_content = read_to_string(file_paths.recipients()).await?;
@@ -46,16 +43,24 @@ pub async fn simplpedpop_round1(files: String) -> Result<(), CliError> {
         .write_all(all_message_json.as_bytes())
         .await?;
 
+    let account_id = AccountId32(keypair.public.to_bytes());
+
+    println!("Owner of account {} completed round 1 of Threshold Public Key generation successfully.", account_id);
+    println!("The message to all participants was written to: {:?}", file_paths.all_messages());    
+
     Ok(())
 }
 
-// Simplpedpop Round 2
-pub async fn simplpedpop_round2(files: String) -> Result<(), CliError> {
+pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
-    let secret_key_string = read_to_string(file_paths.contributor_secret_key()).await?;
-    let secret_key_bytes: Vec<u8> = from_str(&secret_key_string)?;
-    let keypair = Keypair::from(SecretKey::from_bytes(&secret_key_bytes)?);
+    // Read and parse the secret key from hex string
+    let secret_key_file_content = read_to_string(file_paths.contributor_secret_key()).await?;
+    let secret_key_string: String = serde_json::from_str(&secret_key_file_content)?;
+    let secret_key_string = secret_key_string.trim();
+    let secret_key_hex = secret_key_string.strip_prefix("0x").unwrap_or(secret_key_string);
+    let secret_key_bytes = hex::decode(secret_key_hex)?;
+    let keypair = MiniSecretKey::from_bytes(&secret_key_bytes)?.expand_to_keypair(schnorrkel::ExpansionMode::Ed25519);
 
     let all_messages_string = read_to_string(file_paths.all_messages()).await?;
     let all_messages_bytes: Vec<Vec<u8>> = from_str(&all_messages_string)?;
@@ -88,6 +93,14 @@ pub async fn simplpedpop_round2(files: String) -> Result<(), CliError> {
     threshold_public_key_file
         .write_all(threshold_public_key_json.as_bytes())
         .await?;
+
+    let account_id = AccountId32(keypair.public.to_bytes());
+    let threshold_public_key = AccountId32(threshold_public_key.0.to_bytes());
+
+    println!("Owner of account {} completed round 2 of Threshold Public Key generation successfully.", account_id);
+    println!("The output message was written to: {:?}", file_paths.spp_output()); 
+    println!("The signing share was written to: {:?}", file_paths.signing_share()); 
+    println!("The Threshold Public Key is {} and was written to: {:?}", threshold_public_key, file_paths.threshold_public_key());  
 
     Ok(())
 }

@@ -16,7 +16,8 @@ pub enum CliError {
     Subxt(SubxtError),
     SimplPedPop(SPPError),
     Hex(FromHexError),
-    Account(PublicError)
+    Account(PublicError),
+    Custom(String),
 }
 
 impl fmt::Display for CliError {
@@ -30,6 +31,7 @@ impl fmt::Display for CliError {
             CliError::SimplPedPop(err) => write!(f, "SimplPedPop Error: {:?}", err),
             CliError::Hex(err) => write!(f, "Hex Error: {:?}", err),
             CliError::Account(err) => write!(f, "Account Error: {:?}", err),
+            CliError::Custom(err) => write!(f, "Custom Error: {:?}", err),
         }
     }
 }
@@ -81,3 +83,5 @@ impl From<PublicError> for CliError {
         CliError::Account(error)
     }
 }
+
+

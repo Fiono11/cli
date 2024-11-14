@@ -1,11 +1,11 @@
 use crate::{cli::errors::CliError, files::FilePaths};
 use schnorrkel::{
     olaf::{
-        multisig::{aggregate, SigningCommitments, SigningNonces, SigningPackage},
+        multisig::{SigningCommitments, SigningNonces},
         simplpedpop::SPPOutputMessage,
         SigningKeypair,
     },
-    PublicKey, Signature,
+    PublicKey,
 };
 use serde_json::from_str;
 use subxt::{
@@ -20,14 +20,11 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-const CONTEXT: &[u8] = b"substrate";
-
 // Generate an interface that we can use from the node's metadata.
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
 pub mod polkadot {}
 
-// Multisig Round 1
-pub async fn multisig_round1(files: String) -> Result<(), CliError> {
+pub async fn threshold_sign_round1(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
     let signing_share_string = read_to_string(file_paths.signing_share()).await?;
@@ -53,8 +50,14 @@ pub async fn multisig_round1(files: String) -> Result<(), CliError> {
     Ok(())
 }
 
-// Multisig Round 2
-pub async fn multisig_round2(files: String) -> Result<(), CliError> {
+pub async fn threshold_sign_round2(
+    files: String,
+    url: String,
+    pallet: String,
+    function: String,
+    call_args: String,
+    context: String,
+) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
     let signing_commitments_string = read_to_string(file_paths.signing_commitments()).await?;
@@ -80,11 +83,15 @@ pub async fn multisig_round2(files: String) -> Result<(), CliError> {
     let threshold_public_key_bytes: Vec<u8> = from_str(&threshold_public_key_string)?;
     let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes)?;
 
-    let client = OnlineClient::<PolkadotConfig>::new().await?;
-    let rpc_client = RpcClient::from_url("ws://127.0.0.1:9944").await?;
+    let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::new().await?;
+    let rpc_client = RpcClient::from_url(url).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
 
-    let call = subxt::dynamic::tx("System", "remark", vec![Value::from_bytes("Hello there")]);
+    // Parse call arguments from JSON string
+    let args: Vec<Value> = serde_json::from_str(&call_args)?;
+
+    // Create the call with the given pallet, function, and arguments
+    let call = subxt::dynamic::tx(&pallet, &function, args);
 
     let account_id = AccountId32(threshold_public_key.to_bytes());
     let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
@@ -93,7 +100,7 @@ pub async fn multisig_round2(files: String) -> Result<(), CliError> {
     let payload = partial_tx.signer_payload().to_vec();
 
     let signing_package = signing_share.sign(
-        CONTEXT.to_vec(),
+        context.as_bytes().to_vec(),
         payload,
         spp_output.spp_output(),
         signing_commitments,
@@ -108,31 +115,18 @@ pub async fn multisig_round2(files: String) -> Result<(), CliError> {
         .write_all(signing_package_json.as_bytes())
         .await?;
 
-    Ok(())
-}
-
-// Multisig Aggregate
-pub async fn multisig_aggregate(files: String) -> Result<(), CliError> {
-    let file_paths = FilePaths::new(files);
-
-    let threshold_public_key_string = read_to_string(file_paths.threshold_public_key()).await?;
-    let threshold_public_key_bytes: Vec<u8> = from_str(&threshold_public_key_string)?;
-    let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes)?;
-
-    let account_id = AccountId32(threshold_public_key.to_bytes());
-    println!("pk: {:?}", account_id.to_string());
-
-    let signing_packages_string = read_to_string(file_paths.signing_packages()).await?;
-    let signing_packages_bytes: Vec<Vec<u8>> = from_str(&signing_packages_string)?;
-    let signing_packages: Vec<SigningPackage> = signing_packages_bytes
-        .iter()
-        .map(|sp| SigningPackage::from_bytes(sp))
-        .collect::<Result<_, _>>()?;
-
-    let group_signature: Signature = aggregate(&signing_packages)?;
-    let signature_json = serde_json::to_string_pretty(&group_signature.to_bytes().to_vec())?;
-    let mut signature_file = File::create(file_paths.signature()).await?;
-    signature_file.write_all(signature_json.as_bytes()).await?;
+    // Save extrinsic arguments to a file
+    let extrinsic_args = serde_json::json!({
+        "pallet": pallet,
+        "function": function,
+        "call_args": call_args,
+    });
+    let extrinsic_args_string = serde_json::to_string_pretty(&extrinsic_args)?;
+    let mut extrinsic_args_file = File::create(file_paths.extrinsic_info()).await?;
+    extrinsic_args_file
+        .write_all(extrinsic_args_string.as_bytes())
+        .await?;
 
     Ok(())
 }
+

@@ -1,3 +1,4 @@
-pub mod multisig;
-pub mod simplpedpop;
+pub mod sign;
+pub mod generate;
 pub mod submit;
+pub mod aggregate;

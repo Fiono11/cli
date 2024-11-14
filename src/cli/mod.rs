@@ -12,27 +12,19 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    SimplpedpopRound1 {
+    GenerateThresholdPublicKeyRound1 {
         #[arg(long)]
         files: String,
     },
-    SimplpedpopRound2 {
+    GenerateThresholdPublicKeyRound2 {
         #[arg(long)]
         files: String,
     },
-    MultisigRound1 {
+    ThresholdSignRound1 {
         #[arg(long)]
         files: String,
     },
-    MultisigRound2 {
-        #[arg(long)]
-        files: String,
-    },
-    MultisigAggregate {
-        #[arg(long)]
-        files: String,
-    },
-    SubmitTransaction {
+    ThresholdSignRound2 {
         #[arg(long)]
         files: String,
         #[arg(long, default_value = "ws://127.0.0.1:9944")]
@@ -47,5 +39,15 @@ pub enum Commands {
             help = "Call arguments in JSON array format"
         )]
         call_args: String,
+        #[arg(long, default_value = "substrate")]
+        context: String,
+    },
+    AggregateThresholdSignatureShares {
+        #[arg(long)]
+        files: String,
+    },
+    SubmitThresholdTransaction {
+        #[arg(long)]
+        files: String,
     },
 }

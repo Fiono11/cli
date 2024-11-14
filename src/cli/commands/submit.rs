@@ -12,12 +12,8 @@ use subxt::{
 };
 use tokio::fs::read_to_string;
 
-pub async fn submit_transaction(
+pub async fn submit_threshold_extrinsic(
     files: String,
-    url: String,
-    pallet: String,
-    function: String,
-    call_args: String,
 ) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
@@ -34,25 +30,44 @@ pub async fn submit_transaction(
     let signature_bytes: Vec<u8> = from_str(&signature_string)?;
     let group_signature = Signature::from_bytes(&signature_bytes)?;
 
+    // Read extrinsic arguments from file
+    let extrinsic_info_string = read_to_string(file_paths.extrinsic_info()).await?;
+    let extrinsic_info: serde_json::Value = serde_json::from_str(&extrinsic_info_string)?;
+
+    let url = extrinsic_info
+        .get("url")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CliError::Custom("Missing 'url' in extrinsic info".to_string()))?;
+    let pallet = extrinsic_info
+        .get("pallet")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CliError::Custom("Missing 'pallet' in extrinsic info".to_string()))?;
+    let function = extrinsic_info
+        .get("function")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CliError::Custom("Missing 'function' in extrinsic info".to_string()))?;
+    let call_args_str = extrinsic_info
+        .get("call_args")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| CliError::Custom("Missing 'call_args' in extrinsic info".to_string()))?;
+    let args: Vec<Value> = serde_json::from_str(call_args_str)?;
+
     let client = OnlineClient::<PolkadotConfig>::new().await?;
     let rpc_client = RpcClient::from_url(url).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
     let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
 
-    // Parse call arguments from JSON string
-    let args: Vec<Value> = serde_json::from_str(&call_args)?;
-
     // Create the call with the given pallet, function, and arguments
     let call = subxt::dynamic::tx(pallet, function, args);
     let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build();
-    let partial_tx = client.tx().create_partial_signed_offline(&call, params)?;
+    let partial_extrinsic = client.tx().create_partial_signed_offline(&call, params)?;
 
     let signature = subxt_signer::sr25519::Signature(group_signature.to_bytes());
     let public_key: MultiAddress<AccountId32, _> =
         subxt_signer::sr25519::PublicKey(threshold_public_key.to_bytes()).into();
 
-    let tx = partial_tx.sign_with_address_and_signature(&public_key, &signature.into());
-    tx.submit().await?;
+    let extrinsic = partial_extrinsic.sign_with_address_and_signature(&public_key, &signature.into());
+    extrinsic.submit().await?;
 
     Ok(())
 }
