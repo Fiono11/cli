@@ -22,10 +22,10 @@ async fn main() -> Result<(), CliError> {
             url,
             pallet,
             function,
-            call_args,
+            call_data,
             context
         } => {
-            threshold_sign_round2(files, url, pallet, function, call_args, context).await?
+            threshold_sign_round2(files, url, pallet, function, call_data, context).await?
         }
         Commands::AggregateThresholdSignatureShares { files } => aggregate_threshold_signature(files).await?,
         Commands::SubmitThresholdTransaction { files } => submit_threshold_extrinsic(files).await?,

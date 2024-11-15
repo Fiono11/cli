@@ -47,6 +47,13 @@ pub async fn threshold_sign_round1(files: String) -> Result<(), CliError> {
         .write_all(signing_commitments_json.as_bytes())
         .await?;
 
+    println!("Round 1 of threshold signing was completed successfully.");
+    println!("Signing nonce was written to: {:?}", file_paths.signing_nonces());
+    println!(
+        "Signing commitment was written to: {:?}",
+        file_paths.signing_commitments()
+    );        
+
     Ok(())
 }
 
@@ -55,7 +62,7 @@ pub async fn threshold_sign_round2(
     url: String,
     pallet: String,
     function: String,
-    call_args: String,
+    call_data: String,
     context: String,
 ) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
@@ -84,14 +91,13 @@ pub async fn threshold_sign_round2(
     let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes)?;
 
     let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::new().await?;
-    let rpc_client = RpcClient::from_url(url).await?;
+    let rpc_client = RpcClient::from_url(url.clone()).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
 
-    // Parse call arguments from JSON string
-    let args: Vec<Value> = serde_json::from_str(&call_args)?;
+    let encoded_call_data: Value = Value::from_bytes(call_data.clone().as_bytes());
 
     // Create the call with the given pallet, function, and arguments
-    let call = subxt::dynamic::tx(&pallet, &function, args);
+    let call = subxt::dynamic::tx(&pallet, &function, vec![encoded_call_data]);
 
     let account_id = AccountId32(threshold_public_key.to_bytes());
     let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
@@ -116,16 +122,24 @@ pub async fn threshold_sign_round2(
         .await?;
 
     // Save extrinsic arguments to a file
-    let extrinsic_args = serde_json::json!({
+    let extrinsic_info = serde_json::json!({
+        "url": url,
         "pallet": pallet,
         "function": function,
-        "call_args": call_args,
+        "call_data": call_data,
     });
-    let extrinsic_args_string = serde_json::to_string_pretty(&extrinsic_args)?;
+    let extrinsic_args_string = serde_json::to_string_pretty(&extrinsic_info)?;
     let mut extrinsic_args_file = File::create(file_paths.extrinsic_info()).await?;
     extrinsic_args_file
         .write_all(extrinsic_args_string.as_bytes())
         .await?;
+
+    println!("Round 2 of threshold signing was completed successfully.");
+    println!("Signing package was written to: {:?}", file_paths.signing_commitments());
+    println!(
+        "Extrinsic info was written to: {:?}",
+        file_paths.extrinsic_info()
+    );
 
     Ok(())
 }

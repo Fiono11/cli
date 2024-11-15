@@ -33,12 +33,8 @@ pub enum Commands {
         pallet: String,
         #[arg(long, default_value = "remark")]
         function: String,
-        #[arg(
-            long,
-            default_value = "[]",
-            help = "Call arguments in JSON array format"
-        )]
-        call_args: String,
+        #[arg(long, default_value = "((166, 175))")]
+        call_data: String,
         #[arg(long, default_value = "substrate")]
         context: String,
     },
