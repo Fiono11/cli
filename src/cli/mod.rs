@@ -32,13 +32,13 @@ pub enum Commands {
         #[arg(long, default_value = "System")]
         pallet: String,
         #[arg(long, default_value = "remark")]
-        function: String,
-        #[arg(long, default_value = "((166, 175))")]
+        call_name: String,
+        #[arg(long, default_value = "((197, 38))")]
         call_data: String,
         #[arg(long, default_value = "substrate")]
         context: String,
     },
-    AggregateThresholdSignatureShares {
+    AggregateThresholdSignature {
         #[arg(long)]
         files: String,
     },

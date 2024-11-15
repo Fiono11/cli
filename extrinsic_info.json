@@ -1,6 +1,6 @@
 {
-  "call_data": "((166, 175))",
-  "function": "remark",
+  "call_data": "((197, 38))",
+  "call_name": "remark",
   "pallet": "System",
   "url": "ws://127.0.0.1:9944"
 }

@@ -1,24 +1,19 @@
+use std::str::FromStr;
 use crate::{cli::errors::CliError, files::FilePaths};
-use schnorrkel::{
-    olaf::{
-        multisig::{SigningCommitments, SigningNonces},
-        simplpedpop::SPPOutputMessage,
-        SigningKeypair,
-    },
-    PublicKey,
+use schnorrkel::olaf::{
+    multisig::{SigningCommitments, SigningNonces},
+    simplpedpop::SPPOutputMessage,
+    SigningKeypair,
 };
 use serde_json::from_str;
 use subxt::{
-    backend::{legacy::LegacyRpcMethods, rpc::RpcClient},
-    config::polkadot::PolkadotExtrinsicParamsBuilder,
-    dynamic::Value,
-    utils::AccountId32,
-    OnlineClient, PolkadotConfig,
+    backend::{legacy::LegacyRpcMethods, rpc::RpcClient}, config::polkadot::PolkadotExtrinsicParamsBuilder, tx, utils::AccountId32, OnlineClient, PolkadotConfig
 };
 use tokio::{
     fs::{read_to_string, File},
     io::AsyncWriteExt,
 };
+use scale_value::{Composite, ValueDef};
 
 // Generate an interface that we can use from the node's metadata.
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
@@ -61,7 +56,7 @@ pub async fn threshold_sign_round2(
     files: String,
     url: String,
     pallet: String,
-    function: String,
+    call_name: String,
     call_data: String,
     context: String,
 ) -> Result<(), CliError> {
@@ -86,20 +81,28 @@ pub async fn threshold_sign_round2(
     let output_bytes: Vec<u8> = from_str(&output_string)?;
     let spp_output = SPPOutputMessage::from_bytes(&output_bytes)?;
 
+    //let threshold_public_key_string = read_to_string(file_paths.threshold_public_key()).await?;
+    //let threshold_public_key_bytes: Vec<u8> = from_str(&threshold_public_key_string)?;
+    //let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes)?;
+
     let threshold_public_key_string = read_to_string(file_paths.threshold_public_key()).await?;
-    let threshold_public_key_bytes: Vec<u8> = from_str(&threshold_public_key_string)?;
-    let threshold_public_key = PublicKey::from_bytes(&threshold_public_key_bytes)?;
+	let account_id = AccountId32::from_str(from_str(&threshold_public_key_string)?)
+        .map_err(|e| CliError::Custom(e.to_string()))?;
 
     let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::new().await?;
     let rpc_client = RpcClient::from_url(url.clone()).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
 
-    let encoded_call_data: Value = Value::from_bytes(call_data.clone().as_bytes());
+    //let encoded_call_data: Value = Value::from_bytes(call_data.clone().as_bytes());
+
+    // parse scale_value from trailing arguments and try to create an unsigned extrinsic with it:
+	let value = scale_value::stringify::from_str(&call_data).0.unwrap();
+	let value_as_composite = value_into_composite(value);
 
     // Create the call with the given pallet, function, and arguments
-    let call = subxt::dynamic::tx(&pallet, &function, vec![encoded_call_data]);
+    let call = tx::dynamic(&pallet, &call_name, value_as_composite);
 
-    let account_id = AccountId32(threshold_public_key.to_bytes());
+    //let account_id = AccountId32(threshold_public_key.to_bytes());
     let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
     let params = PolkadotExtrinsicParamsBuilder::new().nonce(nonce).build();
     let partial_tx = client.tx().create_partial_signed_offline(&call, params)?;
@@ -125,7 +128,7 @@ pub async fn threshold_sign_round2(
     let extrinsic_info = serde_json::json!({
         "url": url,
         "pallet": pallet,
-        "function": function,
+        "call_name": call_name,
         "call_data": call_data,
     });
     let extrinsic_args_string = serde_json::to_string_pretty(&extrinsic_info)?;
@@ -135,7 +138,7 @@ pub async fn threshold_sign_round2(
         .await?;
 
     println!("Round 2 of threshold signing was completed successfully.");
-    println!("Signing package was written to: {:?}", file_paths.signing_commitments());
+    println!("Signing package was written to: {:?}", file_paths.signing_packages());
     println!(
         "Extrinsic info was written to: {:?}",
         file_paths.extrinsic_info()
@@ -144,3 +147,10 @@ pub async fn threshold_sign_round2(
     Ok(())
 }
 
+/// composites stay composites, all other types are converted into a 1-fielded unnamed composite
+pub(crate) fn value_into_composite(value: scale_value::Value) -> scale_value::Composite<()> {
+	match value.value {
+		ValueDef::Composite(composite) => composite,
+		_ => Composite::Unnamed(vec![value]),
+	}
+}

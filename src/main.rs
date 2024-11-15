@@ -21,13 +21,13 @@ async fn main() -> Result<(), CliError> {
             files,
             url,
             pallet,
-            function,
+            call_name,
             call_data,
             context
         } => {
-            threshold_sign_round2(files, url, pallet, function, call_data, context).await?
+            threshold_sign_round2(files, url, pallet, call_name, call_data, context).await?
         }
-        Commands::AggregateThresholdSignatureShares { files } => aggregate_threshold_signature(files).await?,
+        Commands::AggregateThresholdSignature { files } => aggregate_threshold_signature(files).await?,
         Commands::SubmitThresholdTransaction { files } => submit_threshold_extrinsic(files).await?,
     }
 

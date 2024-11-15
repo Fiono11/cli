@@ -33,7 +33,7 @@ pub async fn generate_threshold_public_key_round1(files: String) -> Result<(), C
         })
         .collect::<Result<_, _>>()?;
 
-    let all_message: AllMessage = keypair.simplpedpop_contribute_all(2, recipients)?;
+    let all_message: AllMessage = keypair.simplpedpop_contribute_all(2, recipients)?; // todo: add threshold arg to cli
     let all_message_bytes: Vec<u8> = all_message.to_bytes();
     let all_message_vec: Vec<Vec<u8>> = vec![all_message_bytes];
     let all_message_json = serde_json::to_string_pretty(&all_message_vec)?;
@@ -97,7 +97,7 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
     let account_id = AccountId32(keypair.public.to_bytes());
     let threshold_public_key = AccountId32(threshold_public_key.0.to_bytes());
 
-    println!("Owner of account {} completed round 2 of Threshold Public Key generation successfully.", account_id);
+    println!("The owner of account {} completed round 2 of Threshold Public Key generation successfully.", account_id);
     println!("The output message was written to: {:?}", file_paths.spp_output()); 
     println!("The signing share was written to: {:?}", file_paths.signing_share()); 
     println!("The Threshold Public Key is {} and was written to: {:?}", threshold_public_key, file_paths.threshold_public_key());  
