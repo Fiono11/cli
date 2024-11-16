@@ -31,7 +31,9 @@ pub async fn generate_threshold_public_key_round1(threshold: u16, files: String)
         })
         .collect::<Result<_, _>>()?;
 
-    let all_message: AllMessage = keypair.simplpedpop_contribute_all(threshold, recipients)?; // todo: add threshold arg to cli
+    println!("recipients: {:?}", recipients);
+
+    let all_message: AllMessage = keypair.simplpedpop_contribute_all(threshold, recipients)?; 
     let all_message_bytes: Vec<u8> = all_message.to_bytes();
     let all_message_vec: Vec<Vec<u8>> = vec![all_message_bytes];
     let all_message_json = serde_json::to_string_pretty(&all_message_vec)?;
@@ -43,7 +45,7 @@ pub async fn generate_threshold_public_key_round1(threshold: u16, files: String)
 
     let account_id = AccountId32(keypair.public.to_bytes());
 
-    println!("Owner of account {} completed round 1 of Threshold Public Key generation successfully!", account_id);
+    println!("The owner of account {} completed round 1 of Threshold Public Key generation successfully!", account_id);
     println!("The message to all participants was written to: {:?}", file_paths.all_messages());    
 
     Ok(())
