@@ -3,6 +3,10 @@ name = "olaf-cli"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "olaf-cli"
+path = "src/main.rs" 
+
 [dependencies]
 schnorrkel = { git = "https://github.com/Fiono11/schnorrkel" }
 clap = { version = "4.5.2", features = ["derive"] }
