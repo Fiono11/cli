@@ -28,7 +28,7 @@ async fn main() -> Result<(), CliError> {
             threshold_sign_round2(files, url, pallet, call_name, call_data, context).await?
         }
         Commands::AggregateThresholdSignature { files } => aggregate_threshold_signature(files).await?,
-        Commands::SubmitThresholdTransaction { files } => submit_threshold_extrinsic(files).await?,
+        Commands::SubmitThresholdExtrinsic { files } => submit_threshold_extrinsic(files).await?,
     }
 
     Ok(())

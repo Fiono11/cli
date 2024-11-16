@@ -44,7 +44,7 @@ pub enum Commands {
         #[arg(long)]
         files: String,
     },
-    SubmitThresholdTransaction {
+    SubmitThresholdExtrinsic {
         #[arg(long)]
         files: String,
     },

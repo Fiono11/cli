@@ -84,19 +84,17 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
         .write_all(signing_share_json.as_bytes())
         .await?;
 
-    let threshold_public_key = spp_output.spp_output().threshold_public_key();
+    let threshold_public_key =
+        AccountId32(spp_output.spp_output().threshold_public_key().0.to_bytes());
     let threshold_public_key_json =
-        serde_json::to_string_pretty(&threshold_public_key.0.to_bytes())?;
+        serde_json::to_string_pretty(&threshold_public_key)?;
 
     let mut threshold_public_key_file = File::create(file_paths.threshold_public_key()).await?;
     threshold_public_key_file
         .write_all(threshold_public_key_json.as_bytes())
         .await?;
 
-    let account_id = AccountId32(keypair.public.to_bytes());
-    let threshold_public_key = AccountId32(threshold_public_key.0.to_bytes());
-
-    println!("The owner of account {} completed round 2 of Threshold Public Key generation successfully!", account_id);
+    println!("The owner of account {} completed round 2 of Threshold Public Key generation successfully!", threshold_public_key);
     println!("The output message was written to: {:?}", file_paths.spp_output()); 
     println!("The signing share was written to: {:?}", file_paths.signing_share()); 
     println!("The Threshold Public Key is {} and was written to: {:?}", threshold_public_key, file_paths.threshold_public_key());  

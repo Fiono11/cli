@@ -44,3 +44,27 @@ Secret phrase:       eye goddess hotel merge sand lesson exclude bird shell arri
 - cargo run generate-threshold-public-key-round1 --threshold 2 --files .
 
 - Aggregate the messages from all participants in "all_messages.json" file
+
+- Generate the secret signing share for each partipant 1 and the threshold public key
+
+cargo run generate-threshold-public-key-round2 --files .
+
+- Generate the secret signing nonces and the corresponding public signing commitments of each participant
+
+cargo run threshold-sign-round1 --files .  
+
+- Start server
+
+- Fund the threshold account
+
+- Generate the public signing package for each participant
+
+cargo run threshold-sign-round2 --files .  
+
+- Aggregate the public signing packages
+
+cargo run aggregate-threshold-extrinsic --files . 
+
+- Submit the threshold extrinsic
+
+cargo run submit-threshold-extrinsic --files . 
