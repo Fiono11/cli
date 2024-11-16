@@ -18,7 +18,7 @@ pub async fn aggregate_threshold_signature(files: String) -> Result<(), CliError
     let mut signature_file = File::create(file_paths.signature()).await?;
     signature_file.write_all(signature_json.as_bytes()).await?;
 
-    println!("Aggregation of threshold signature was completed successfully.");
+    println!("Aggregation of threshold signature was completed successfully!");
     println!("The threshold signature was written to: {:?}", file_paths.signature());
 
     Ok(())

@@ -14,7 +14,7 @@ async fn main() -> Result<(), CliError> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::GenerateThresholdPublicKeyRound1 { files } => generate_threshold_public_key_round1(files).await?,
+        Commands::GenerateThresholdPublicKeyRound1 { threshold, files } => generate_threshold_public_key_round1(threshold, files).await?,
         Commands::GenerateThresholdPublicKeyRound2 { files } => generate_threshold_public_key_round2(files).await?,
         Commands::ThresholdSignRound1 { files } => threshold_sign_round1(files).await?,
         Commands::ThresholdSignRound2 {

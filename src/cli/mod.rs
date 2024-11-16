@@ -14,6 +14,8 @@ pub struct Cli {
 pub enum Commands {
     GenerateThresholdPublicKeyRound1 {
         #[arg(long)]
+        threshold: u16,
+        #[arg(long)]
         files: String,
     },
     GenerateThresholdPublicKeyRound2 {
