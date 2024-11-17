@@ -29,7 +29,7 @@ pub enum Commands {
     ThresholdSignRound2 {
         #[arg(long)]
         files: String,
-        #[arg(long, default_value = "ws://127.0.0.1:9944")]
+        #[arg(long, default_value = "wss://westend-rpc.polkadot.io")]
         url: String,
         #[arg(long, default_value = "System")]
         pallet: String,
