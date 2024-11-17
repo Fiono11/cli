@@ -83,8 +83,8 @@ pub async fn threshold_sign_round2(
 	let account_id = AccountId32::from_str(from_str(&threshold_public_key_string)?)
         .map_err(|e| CliError::Custom(e.to_string()))?;
 
-    let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::new().await?;
-    let rpc_client = RpcClient::from_url(url.clone()).await?;
+    let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::from_url(&url).await?;
+    let rpc_client = RpcClient::from_url(&url).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
 
 	let value = scale_value::stringify::from_str(&call_data).0.unwrap();

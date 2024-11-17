@@ -19,6 +19,11 @@ RUN cargo build --release
 # Stage 2: Create a minimal runtime image
 FROM debian:bookworm-slim
 
+# **Install CA certificates**
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy the compiled binary from the builder stage
 COPY --from=builder /usr/src/olaf-cli/target/release/olaf-cli /usr/local/bin/olaf-cli
 
