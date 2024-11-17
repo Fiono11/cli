@@ -26,14 +26,14 @@ pub async fn threshold_sign_round1(files: String) -> Result<(), CliError> {
 
     let (signing_nonces, signing_commitments) = signing_share.commit();
 
-    let signing_nonces_json = serde_json::to_string_pretty(&signing_nonces.to_bytes().to_vec())?;
+    let signing_nonces_json = serde_json::to_string(&signing_nonces.to_bytes().to_vec())?;
     let mut signing_nonces_file = File::create(file_paths.signing_nonces()).await?;
     signing_nonces_file
         .write_all(signing_nonces_json.as_bytes())
         .await?;
 
     let signing_commitments_vec = vec![signing_commitments.to_bytes().to_vec()];
-    let signing_commitments_json = serde_json::to_string_pretty(&signing_commitments_vec)?;
+    let signing_commitments_json = serde_json::to_string(&signing_commitments_vec)?;
 
     let mut signing_commitments_file = File::create(file_paths.signing_commitments()).await?;
     signing_commitments_file
@@ -106,7 +106,7 @@ pub async fn threshold_sign_round2(
     )?;
 
     let signing_packages_vec = vec![signing_package.to_bytes()];
-    let signing_package_json = serde_json::to_string_pretty(&signing_packages_vec)?;
+    let signing_package_json = serde_json::to_string(&signing_packages_vec)?;
 
     let mut signing_package_file = File::create(file_paths.signing_packages()).await?;
     signing_package_file
@@ -120,7 +120,7 @@ pub async fn threshold_sign_round2(
         "call_data": call_data,
     });
 
-    let extrinsic_args_string = serde_json::to_string_pretty(&extrinsic_info)?;
+    let extrinsic_args_string = serde_json::to_string(&extrinsic_info)?;
     let mut extrinsic_args_file = File::create(file_paths.extrinsic_info()).await?;
     extrinsic_args_file
         .write_all(extrinsic_args_string.as_bytes())

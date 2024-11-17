@@ -14,7 +14,7 @@ pub async fn aggregate_threshold_signature(files: String) -> Result<(), CliError
         .collect::<Result<_, _>>()?;
 
     let group_signature: Signature = aggregate(&signing_packages)?;
-    let signature_json = serde_json::to_string_pretty(&group_signature.to_bytes().to_vec())?;
+    let signature_json = serde_json::to_string(&group_signature.to_bytes().to_vec())?;
     let mut signature_file = File::create(file_paths.signature()).await?;
     signature_file.write_all(signature_json.as_bytes()).await?;
 

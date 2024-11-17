@@ -15,15 +15,15 @@ pub enum Commands {
     GenerateThresholdPublicKeyRound1 {
         #[arg(long)]
         threshold: u16,
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         files: String,
     },
     GenerateThresholdPublicKeyRound2 {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         files: String,
     },
     ThresholdSignRound1 {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         files: String,
     },
     ThresholdSignRound2 {
@@ -41,11 +41,11 @@ pub enum Commands {
         context: String,
     },
     AggregateThresholdSignature {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         files: String,
     },
     SubmitThresholdExtrinsic {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         files: String,
     },
 }
