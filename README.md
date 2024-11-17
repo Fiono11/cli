@@ -25,50 +25,6 @@ Secret phrase:       eye goddess hotel merge sand lesson exclude bird shell arri
 - Each participant has a share of the threshold secret key
 - A threshold t-of-n of shares are needed to sign with the threshold public key 
 
-- Create a "recipients.json" file with the participants' public keys:
-[
-  "5CXkZyy4S5b3w16wvKA2hUwzp5q2y7UtRPkXnW97QGvDN8Jw",
-  "5Gma8SNsn6rkQf9reAWFQ9WKq8bwwHtSzwMYtLTdhYsGPKiy"
-]
-
-- Generate the message of round 1 of participant 1 to be sent to all participants
-
-- Create a "contributor_secret_key.json" file with: "0x473a77675b8e77d90c1b6dc2dbe6ac533b0853790ea8bcadf0ee8b5da4cfbbce"
-
-- cargo run generate-threshold-public-key-round1 --threshold 2 --files .
-
-- Generate the message of round 1 of participant 2 to be sent to all participants
-
-- Create a "contributor_secret_key.json" file with: "0xdb9ddbb3d6671c4de8248a4fba95f3d873dc21a0434b52951bb33730c1ac93d7"
-
-- cargo run generate-threshold-public-key-round1 --threshold 2 --files .
-
-- Aggregate the messages from all participants in "all_messages.json" file
-
-- Generate the secret signing share for each partipant 1 and the threshold public key
-
-cargo run generate-threshold-public-key-round2 --files .
-
-- Generate the secret signing nonces and the corresponding public signing commitments of each participant
-
-cargo run threshold-sign-round1 --files .  
-
-- Start server
-
-- Fund the threshold account
-
-- Generate the public signing package for each participant
-
-cargo run threshold-sign-round2 --files .  
-
-- Aggregate the public signing packages
-
-cargo run aggregate-threshold-extrinsic --files . 
-
-- Submit the threshold extrinsic
-
-cargo run submit-threshold-extrinsic --files . 
-
 Docker
 
 docker build -t olaf-cli .
@@ -77,9 +33,61 @@ docker run -it --entrypoint /bin/bash olaf-cli
 
 cd usr/local/bin/
 
+Note: All commands use the default path "." but it can be overriden with --files "custom_path"
+
+- Create a "recipients.json" file with the participants' public keys:
+
 echo '[
   "5CXkZyy4S5b3w16wvKA2hUwzp5q2y7UtRPkXnW97QGvDN8Jw",
   "5Gma8SNsn6rkQf9reAWFQ9WKq8bwwHtSzwMYtLTdhYsGPKiy"
 ]' > recipients.json
 
+- Generate the message of round 1 of participant 1 to be sent to all participants
+
+- Create a "contributor_secret_key.json" file with: 
+
+echo '"0x473a77675b8e77d90c1b6dc2dbe6ac533b0853790ea8bcadf0ee8b5da4cfbbce"' > contributor_secret_key.json
+
+- cargo run generate-threshold-public-key-round1 --threshold 2
+
+- Generate the message of round 1 of participant 2 to be sent to all participants
+
+- Create a "contributor_secret_key.json" file with: 
+
 echo '"0xdb9ddbb3d6671c4de8248a4fba95f3d873dc21a0434b52951bb33730c1ac93d7"' > contributor_secret_key.json
+
+- cargo run generate-threshold-public-key-round1 --threshold 2
+
+- Aggregate the messages from all participants in "all_messages.json" file
+
+- Generate the secret signing share for each partipant 1 and the threshold public key
+
+cargo run generate-threshold-public-key-round2 
+
+- Generate the secret signing nonces and the corresponding public signing commitments of each participant
+
+cargo run threshold-sign-round1 
+
+- Fund the threshold account with, for example, a [faucet](https://faucet.polkadot.io/westend)
+
+- Generate the public signing package for each participant
+- The default values are the following:
+  - url: "wss://westend-rpc.polkadot.io",
+  - pallet: "System",
+  - call_name: "remark",
+  - call_data: "((197, 38))",
+  - context: "substrate",
+- Can be overriden with, for example, --url "custom_url"
+
+cargo run threshold-sign-round2 
+
+- Aggregate the public signing packages
+
+cargo run aggregate-threshold-extrinsic 
+
+- Submit the threshold extrinsic
+
+cargo run submit-threshold-extrinsic 
+
+
+
