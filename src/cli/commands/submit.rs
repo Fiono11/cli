@@ -52,7 +52,7 @@ pub async fn submit_threshold_extrinsic(
     
     let call = tx::dynamic(pallet, call_name, value_as_composite);
 
-    let client = OnlineClient::<PolkadotConfig>::new().await?;
+    let client: OnlineClient<PolkadotConfig> = OnlineClient::<PolkadotConfig>::from_url(&url).await?;
     let rpc_client = RpcClient::from_url(url).await?;
     let legacy_rpc = LegacyRpcMethods::<PolkadotConfig>::new(rpc_client);
     let nonce = legacy_rpc.system_account_next_index(&account_id).await?;
