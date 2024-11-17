@@ -68,3 +68,18 @@ cargo run aggregate-threshold-extrinsic --files .
 - Submit the threshold extrinsic
 
 cargo run submit-threshold-extrinsic --files . 
+
+Docker
+
+docker build -t olaf-cli .
+
+docker run -it --entrypoint /bin/bash olaf-cli
+
+cd usr/local/bin/
+
+echo '[
+  "5CXkZyy4S5b3w16wvKA2hUwzp5q2y7UtRPkXnW97QGvDN8Jw",
+  "5Gma8SNsn6rkQf9reAWFQ9WKq8bwwHtSzwMYtLTdhYsGPKiy"
+]' > recipients.json
+
+echo '"0xdb9ddbb3d6671c4de8248a4fba95f3d873dc21a0434b52951bb33730c1ac93d7"' > contributor_secret_key.json
