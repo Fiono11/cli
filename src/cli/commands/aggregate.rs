@@ -3,6 +3,7 @@ use serde_json::from_str;
 use tokio::{fs::{read_to_string, File}, io::AsyncWriteExt};
 use crate::{cli::errors::CliError, files::FilePaths};
 
+/// Aggregates at least t partial signatures into one threshold signature
 pub async fn aggregate_threshold_signature(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 

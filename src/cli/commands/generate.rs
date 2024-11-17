@@ -9,6 +9,7 @@ use tokio::{
 use hex;
 use sp_core::crypto::Ss58Codec; 
 
+/// Generates the message of round 1 of a participant to send to all participants (including itself)
 pub async fn generate_threshold_public_key_round1(threshold: u16, files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
@@ -49,6 +50,7 @@ pub async fn generate_threshold_public_key_round1(threshold: u16, files: String)
     Ok(())
 }
 
+/// Generates the threshold public key and the corresponding secret secret share of the participant, from the messages of round 1 of all participants (including itself)
 pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 

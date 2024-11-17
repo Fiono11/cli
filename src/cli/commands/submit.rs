@@ -11,6 +11,7 @@ use subxt::{
 };
 use tokio::fs::read_to_string;
 
+/// Submits the threshold extrinsic to the provided url
 pub async fn submit_threshold_extrinsic(
     files: String,
 ) -> Result<(), CliError> {

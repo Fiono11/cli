@@ -17,6 +17,7 @@ use tokio::{
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
 pub mod polkadot {}
 
+/// Generates the secret signing nonce and the corresponding public signing commitment of a participant
 pub async fn threshold_sign_round1(files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
@@ -50,6 +51,11 @@ pub async fn threshold_sign_round1(files: String) -> Result<(), CliError> {
     Ok(())
 }
 
+/// Generates the signing package of a participant from: 
+/// - its secret signing nonce
+/// - the public signing commitments of all participants (including itself)
+/// - the public output of round 2 of the generation of the threshold public key
+/// - the threshold public key
 pub async fn threshold_sign_round2(
     files: String,
     url: String,
