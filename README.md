@@ -199,8 +199,9 @@ This command uses:
 
 It generates:
 
-- The participant's share of the secret key.
-- The shared **threshold public key** (`threshold_public_key.json`).
+- **Signing share** (`signing_share.json`).
+- **Generation output** (`generation_output.json`).
+- **Threshold public key** (`threshold_public_key.json`).
 
 **Note:** The `threshold_public_key.json` should be the same for all participants if the steps are followed correctly.
 
