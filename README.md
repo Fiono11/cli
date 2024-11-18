@@ -50,9 +50,7 @@ This CLI tool implements the protocol for threshold key generation and signing, 
 ## Prerequisites
 
 - [Subkey](https://docs.substrate.io/reference/command-line-tools/subkey/) installed for key pair generation.
-- [Docker](https://docs.docker.com/get-docker/) installed for building and running the Threshold Signature CLI Docker image.
-- Familiarity with command-line operations.
-- Secure communication channels (e.g., email, messaging apps) for sharing files between participants.
+- [Docker](https://docs.docker.com/get-docker/) installed for building and running the Threshold Signature CLI Docker image or [Rust](https://www.rust-lang.org) installed.
 
 ## Setup
 
