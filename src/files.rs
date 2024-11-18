@@ -23,8 +23,8 @@ impl FilePaths {
         self.base.join("all_messages.json")
     }
 
-    pub fn spp_output(&self) -> PathBuf {
-        self.base.join("spp_output.json")
+    pub fn generation_output(&self) -> PathBuf {
+        self.base.join("generation_output.json")
     }
 
     pub fn signing_share(&self) -> PathBuf {
@@ -47,8 +47,8 @@ impl FilePaths {
         self.base.join("signing_packages.json")
     }
 
-    pub fn signature(&self) -> PathBuf {
-        self.base.join("signature.json")
+    pub fn threshold_signature(&self) -> PathBuf {
+        self.base.join("threshold_signature.json")
     }
 
     pub fn extrinsic_info(&self) -> PathBuf {

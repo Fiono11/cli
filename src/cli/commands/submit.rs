@@ -21,7 +21,7 @@ pub async fn submit_threshold_extrinsic(
 	let account_id = AccountId32::from_str(from_str(&threshold_public_key_string)?)
         .map_err(|e| CliError::Custom(e.to_string()))?;
 
-    let signature_string = read_to_string(file_paths.signature()).await?;
+    let signature_string = read_to_string(file_paths.threshold_signature()).await?;
     let signature_bytes: Vec<u8> = from_str(&signature_string)?;
     let group_signature = Signature::from_bytes(&signature_bytes)?;
 

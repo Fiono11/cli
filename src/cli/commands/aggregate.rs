@@ -16,11 +16,11 @@ pub async fn aggregate_threshold_signature(files: String) -> Result<(), CliError
 
     let group_signature: Signature = aggregate(&signing_packages)?;
     let signature_json = serde_json::to_string(&group_signature.to_bytes().to_vec())?;
-    let mut signature_file = File::create(file_paths.signature()).await?;
+    let mut signature_file = File::create(file_paths.threshold_signature()).await?;
     signature_file.write_all(signature_json.as_bytes()).await?;
 
     println!("Aggregation of threshold signature was completed successfully!");
-    println!("The threshold signature was written to: {:?}", file_paths.signature());
+    println!("The threshold signature was written to: {:?}", file_paths.threshold_signature());
 
     Ok(())
 }

@@ -81,7 +81,7 @@ pub async fn threshold_sign_round2(
     let signing_share_bytes: Vec<u8> = from_str(&signing_share_string)?;
     let signing_share = SigningKeypair::from_bytes(&signing_share_bytes)?;
 
-    let output_string = read_to_string(file_paths.spp_output()).await?;
+    let output_string = read_to_string(file_paths.generation_output()).await?;
     let output_bytes: Vec<u8> = from_str(&output_string)?;
     let spp_output = SPPOutputMessage::from_bytes(&output_bytes)?;
 

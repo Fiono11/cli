@@ -73,7 +73,7 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
     let spp_output = simplpedpop.0;
     let output_json = serde_json::to_string(&spp_output.to_bytes())?;
 
-    let mut output_file = File::create(file_paths.spp_output()).await?;
+    let mut output_file = File::create(file_paths.generation_output()).await?;
     output_file.write_all(output_json.as_bytes()).await?;
 
     let signing_share = simplpedpop.1;
@@ -95,7 +95,7 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
         .await?;
 
     println!("The owner of account {} completed round 2 of Threshold Public Key generation successfully!", threshold_public_key);
-    println!("The output message was written to: {:?}", file_paths.spp_output()); 
+    println!("The output message was written to: {:?}", file_paths.generation_output()); 
     println!("The signing share was written to: {:?}", file_paths.signing_share()); 
     println!("The Threshold Public Key is {} and was written to: {:?}", threshold_public_key, file_paths.threshold_public_key());  
 
