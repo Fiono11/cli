@@ -149,10 +149,6 @@ For each participant:
 
 1. **Create `contributor_secret_key.json`:**
 
-   ```bash
-   echo '"YOUR_SECRET_SEED_IN_HEX"' > contributor_secret_key.json
-   ```
-
    **Participant 1:**
 
    ```bash
@@ -181,7 +177,7 @@ Participants share their `all_messages.json` files with each other using secure,
 
 Each participant collects each partipant's `all_messages.json` files (including their own) and aggregates them manually into `all_messages.json`.
 
-Ensure that `all_messages.json` contains messages from all participants.
+**Note:** `cat` can be used to read the files.
 
 ##### Step 3.1.5: Generate Secret Signing Shares and Threshold Public Key
 
