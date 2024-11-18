@@ -171,21 +171,15 @@ For each participant:
    cargo run generate-threshold-public-key-round1 --threshold 2
    ```
 
-   This command generates a `message.json` file that needs to be shared with all other participants.
+   This command generates a `all_messages.json` file that needs to be shared with all other participants.
 
 ##### Step 3.1.3: Exchange Round 1 Messages
 
-Participants share their `message.json` files with each other using secure, out-of-band communication methods.
+Participants share their `all_messages.json` files with each other using secure, out-of-band communication methods.
 
 ##### Step 3.1.4: Aggregate Round 1 Messages
 
-Each participant collects all `message.json` files (including their own) and aggregates them into `all_messages.json`.
-
-**Command:**
-
-```bash
-jq -s '.' message_participant1.json message_participant2.json > all_messages.json
-```
+Each participant collects each partipant's `all_messages.json` files (including their own) and aggregates them manually into `all_messages.json`.
 
 Ensure that `all_messages.json` contains messages from all participants.
 
@@ -224,24 +218,28 @@ cargo run threshold-sign-round1
 
 This generates:
 
-- **Signing nonces** (kept secret).
-- **Public signing commitments** (`signing_commitment.json`).
+- **Secret signing nonces** (`signing_nonces.json`).
+- **Public signing commitments** (`signing_commitments.json`).
 
 ##### Step 3.2.2: Exchange Signing Commitments
 
-Participants share their `signing_commitment.json` files with each other.
+Participants share their `signing_commitments.json` files with each other.
 
 ##### Step 3.2.3: Aggregate Signing Commitments
 
-Each participant aggregates all `signing_commitment.json` files into `all_signing_commitments.json`.
+Each participant aggregates each participant's `signing_commitments.json` files manually into `signing_commitments.json`.
 
-**Command:**
+##### Step 3.2.4: Generate Signing Packages
 
-```bash
-jq -s '.' signing_commitment_participant1.json signing_commitment_participant2.json > all_signing_commitments.json
-```
+**Default Values:**
 
-##### Step 3.2.4: Generate Partial Signatures
+- **URL:** `wss://westend-rpc.polkadot.io`
+- **Pallet:** `System`
+- **Call Name:** `remark`
+- **Call Data:** `((197, 38))`
+- **Context:** `substrate`
+
+**Note:** You can override these defaults using flags, e.g., `--url "custom_url"`.
 
 Each participant runs:
 
@@ -249,15 +247,15 @@ Each participant runs:
 cargo run threshold-sign-round2
 ```
 
-This command generates the participant's **partial signature** (`partial_signature.json`).
+This command generates the participant's **signing_package** (`signing_packages.json`).
 
-##### Step 3.2.5: Exchange Partial Signatures
+##### Step 3.2.5: Exchange Signing Packages
 
-Participants share their `partial_signature.json` files with each other.
+Participants share their `signing_packages.json` files with each other.
 
-##### Step 3.2.6: Aggregate Partial Signatures
+##### Step 3.2.6: Aggregate Signing Packages
 
-One participant (or each participant individually) aggregates the partial signatures to create the final threshold signature.
+One participant (or each participant individually) manually aggregates the signing packages to create the final threshold signature.
 
 **Command:**
 
@@ -275,7 +273,7 @@ Ensure the threshold account (identified by `threshold_public_key.json`) has suf
 
 For example, on the Westend network, use the [Westend Faucet](https://matrix.to/#/#westend_faucet:matrix.org).
 
-##### Step 3.3.2: Submit the Transaction
+##### Step 3.3.2: Submit the Threshold Extrinsic
 
 Run:
 
@@ -283,25 +281,7 @@ Run:
 cargo run submit-threshold-extrinsic
 ```
 
-This submits the threshold-signed transaction to the network.
-
-**Default Values:**
-
-- **URL:** `wss://westend-rpc.polkadot.io`
-- **Pallet:** `System`
-- **Call Name:** `remark`
-- **Call Data:** `((197, 38))`
-- **Context:** `substrate`
-
-**Note:** You can override these defaults using flags, e.g., `--url "custom_url"`.
-
-## Additional Notes and Best Practices
-
-- **Secure Communication:** Use secure channels for sharing files between participants.
-- **File Management:** Keep backups of your files and ensure you're using the correct versions at each step.
-- **Consistency Verification:** Verify that the `threshold_public_key.json` is identical among all participants after generation.
-- **Security:** Never share your `contributor_secret_key.json` or any secret material beyond what's required.
-- **Error Handling:** If you encounter errors, verify file contents and ensure all steps have been followed correctly.
+This submits the threshold-signed extrinsic to the network.
 
 ## Summary of Steps for Each Participant
 
@@ -345,7 +325,7 @@ This submits the threshold-signed transaction to the network.
    cargo run threshold-sign-round1
    ```
 
-9. **Share `signing_commitment.json`:**
+9. **Share `signing_commitments.json`:**
 
    Exchange with other participants.
 
@@ -359,11 +339,11 @@ This submits the threshold-signed transaction to the network.
     cargo run threshold-sign-round2
     ```
 
-12. **Share `partial_signature.json`:**
+12. **Share `signing_packages.json`:**
 
     Exchange with other participants.
 
-13. **Aggregate Partial Signatures:**
+13. **Aggregate Signing Packages:**
 
     Run:
 
@@ -371,18 +351,10 @@ This submits the threshold-signed transaction to the network.
     cargo run aggregate-threshold-extrinsic
     ```
 
-14. **Submit the Transaction:**
+14. **Submit the Threshold Extrinsic:**
 
     ```bash
     cargo run submit-threshold-extrinsic
     ```
-
-## License
-
-This project is licensed under the MIT License.
-
----
-
-By following this guide, participants can securely and collaboratively generate threshold signatures, enhancing the security and trust in shared transactions or accounts.
 
 
