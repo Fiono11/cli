@@ -11,8 +11,8 @@ impl FilePaths {
         }
     }
 
-    pub fn contributor_secret_key(&self) -> PathBuf {
-        self.base.join("contributor_secret_key.json")
+    pub fn contributor_secret_key(&self, participant: u16) -> PathBuf {
+        self.base.join(format!("contributor_secret_key{}.json", participant))
     }
 
     pub fn recipients(&self) -> PathBuf {
@@ -23,20 +23,20 @@ impl FilePaths {
         self.base.join("all_messages.json")
     }
 
-    pub fn generation_output(&self) -> PathBuf {
-        self.base.join("generation_output.json")
+    pub fn generation_output(&self, participant: u16) -> PathBuf {
+        self.base.join(format!("generation_output{}.json", participant))
     }
 
-    pub fn signing_share(&self) -> PathBuf {
-        self.base.join("signing_share.json")
+    pub fn signing_share(&self, participant: u16) -> PathBuf {
+        self.base.join(format!("signing_share{}.json", participant))
     }
 
     pub fn threshold_public_key(&self) -> PathBuf {
         self.base.join("threshold_public_key.json")
     }
 
-    pub fn signing_nonces(&self) -> PathBuf {
-        self.base.join("signing_nonces.json")
+    pub fn signing_nonce(&self, participant: u16) -> PathBuf {
+        self.base.join(format!("signing_nonce{}.json", participant))
     }
 
     pub fn signing_commitments(&self) -> PathBuf {

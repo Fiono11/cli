@@ -15,19 +15,27 @@ pub enum Commands {
     GenerateThresholdPublicKeyRound1 {
         #[arg(long)]
         threshold: u16,
+        #[arg(long)]
+        participant: u16,
         #[arg(long, default_value = ".")]
         files: String,
     },
     GenerateThresholdPublicKeyRound2 {
+        #[arg(long)]
+        participant: u16,
         #[arg(long, default_value = ".")]
         files: String,
     },
     ThresholdSignRound1 {
+        #[arg(long)]
+        participant: u16,
         #[arg(long, default_value = ".")]
         files: String,
     },
     ThresholdSignRound2 {
         #[arg(long)]
+        participant: u16,
+        #[arg(long, default_value = ".")]
         files: String,
         #[arg(long, default_value = "wss://westend-rpc.polkadot.io")]
         url: String,

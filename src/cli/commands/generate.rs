@@ -10,10 +10,10 @@ use hex;
 use sp_core::crypto::Ss58Codec; 
 
 /// Generates the message of round 1 of a participant to send to all participants (including itself)
-pub async fn generate_threshold_public_key_round1(threshold: u16, files: String) -> Result<(), CliError> {
+pub async fn generate_threshold_public_key_round1(threshold: u16, participant: u16, files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
-    let secret_key_file_content = read_to_string(file_paths.contributor_secret_key()).await?;
+    let secret_key_file_content = read_to_string(file_paths.contributor_secret_key(participant)).await?;
     let secret_key_string: String = serde_json::from_str(&secret_key_file_content)?;
     let secret_key_string = secret_key_string.trim();
     let secret_key_hex = secret_key_string.strip_prefix("0x").unwrap_or(secret_key_string);
@@ -34,7 +34,13 @@ pub async fn generate_threshold_public_key_round1(threshold: u16, files: String)
 
     let all_message: AllMessage = keypair.simplpedpop_contribute_all(threshold, recipients)?; 
     let all_message_bytes: Vec<u8> = all_message.to_bytes();
-    let all_message_vec: Vec<Vec<u8>> = vec![all_message_bytes];
+    let mut all_message_vec: Vec<Vec<u8>> = if tokio::fs::metadata(file_paths.all_messages()).await.is_ok() {
+        let existing_content = read_to_string(file_paths.all_messages()).await?;
+        serde_json::from_str(&existing_content).map_err(CliError::Serde)?
+    } else {
+        Vec::new()
+    };
+    all_message_vec.push(all_message_bytes);
     let all_message_json = serde_json::to_string(&all_message_vec)?;
 
     let mut all_message_file = File::create(file_paths.all_messages()).await?;
@@ -51,10 +57,10 @@ pub async fn generate_threshold_public_key_round1(threshold: u16, files: String)
 }
 
 /// Generates the threshold public key and the corresponding secret secret share of the participant, from the messages of round 1 of all participants (including itself)
-pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), CliError> {
+pub async fn generate_threshold_public_key_round2(participant: u16, files: String) -> Result<(), CliError> {
     let file_paths = FilePaths::new(files);
 
-    let secret_key_file_content = read_to_string(file_paths.contributor_secret_key()).await?;
+    let secret_key_file_content = read_to_string(file_paths.contributor_secret_key(participant)).await?;
     let secret_key_string: String = serde_json::from_str(&secret_key_file_content)?;
     let secret_key_string = secret_key_string.trim();
     let secret_key_hex = secret_key_string.strip_prefix("0x").unwrap_or(secret_key_string);
@@ -70,22 +76,22 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
         .collect::<Result<_, _>>()?;
 
     let simplpedpop = keypair.simplpedpop_recipient_all(&all_messages)?;
-    let spp_output = simplpedpop.0;
-    let output_json = serde_json::to_string(&spp_output.to_bytes())?;
-
-    let mut output_file = File::create(file_paths.generation_output()).await?;
+    let generation_output = simplpedpop.0;
+    let output_json = serde_json::to_string(&generation_output.to_bytes())?;
+    
+    let mut output_file = File::create(file_paths.generation_output(participant)).await?;
     output_file.write_all(output_json.as_bytes()).await?;
 
     let signing_share = simplpedpop.1;
     let signing_share_json = serde_json::to_string(&signing_share.to_bytes().to_vec())?;
 
-    let mut signing_share_file = File::create(file_paths.signing_share()).await?;
+    let mut signing_share_file = File::create(file_paths.signing_share(participant)).await?;
     signing_share_file
         .write_all(signing_share_json.as_bytes())
         .await?;
 
     let threshold_public_key =
-        AccountId32(spp_output.spp_output().threshold_public_key().0.to_bytes());
+        AccountId32(generation_output.spp_output().threshold_public_key().0.to_bytes());
     let threshold_public_key_json =
         serde_json::to_string(&threshold_public_key)?;
 
@@ -95,8 +101,8 @@ pub async fn generate_threshold_public_key_round2(files: String) -> Result<(), C
         .await?;
 
     println!("The owner of account {} completed round 2 of Threshold Public Key generation successfully!", threshold_public_key);
-    println!("The output message was written to: {:?}", file_paths.generation_output()); 
-    println!("The signing share was written to: {:?}", file_paths.signing_share()); 
+    println!("The output message was written to: {:?}", file_paths.generation_output(participant)); 
+    println!("The signing share was written to: {:?}", file_paths.signing_share(participant)); 
     println!("The Threshold Public Key is {} and was written to: {:?}", threshold_public_key, file_paths.threshold_public_key());  
 
     Ok(())
