@@ -7,7 +7,7 @@ use crate::cli::commands::{
     submit::submit_threshold_extrinsic,
 };
 use clap::Parser;
-use cli::{commands::aggregate::aggregate_threshold_signature, errors::CliError, Cli, Commands};
+use cli::{commands::aggregate::aggregate_threshold_signature, CliError, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> Result<(), CliError> {

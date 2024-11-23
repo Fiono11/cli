@@ -1,6 +1,6 @@
 pub mod commands;
-pub mod errors;
 
+use std::fmt;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -56,4 +56,13 @@ pub enum Commands {
         #[arg(long, default_value = ".")]
         files: String,
     },
+}
+
+#[derive(Debug)]
+pub struct CliError(pub String);
+
+impl fmt::Display for CliError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Custom Error: {:?}", self.0)
+    }
 }
