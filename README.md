@@ -183,7 +183,7 @@ Only one participant needs to run the following command:
 **Command:**
 
 ```bash
-./olaf-cli aggregate-threshold-extrinsic
+./olaf-cli aggregate-threshold-signature
 ```
 
 This produces the final threshold signature (`threshold_signature.json`), ready for submission.
