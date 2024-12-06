@@ -140,8 +140,9 @@ pub async fn threshold_sign_round2(
         .await
         .map_err(|e| CliError(format!("Failed to read threshold public key file: {}", e)))?;
     
-    let account_id = AccountId32::from_str(&threshold_public_key_string)
-        .map_err(|e| CliError(format!("Failed to parse threshold public key: {}", e)))?;
+    let account_id = AccountId32::from_str(&serde_json::from_str::<String>(&threshold_public_key_string)
+        .map_err(|e| CliError(format!("Failed to parse threshold public key: {}", e)))?)
+        .map_err(|e| CliError(format!("Invalid threshold public key format: {}", e)))?;
 
     let client = OnlineClient::<PolkadotConfig>::from_url(&url)
         .await
