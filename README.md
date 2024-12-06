@@ -117,11 +117,11 @@ Each participant runs the corresponding command:
 Each participant runs the corresponding command:
 
    ```bash
-   ./olaf_cli generate-threshold-public-key-round1 --threshold 2 --participant 1
+   ./olaf-cli generate-threshold-public-key-round1 --threshold 2 --participant 1
    ```
 
    ```bash
-   ./olaf_cli generate-threshold-public-key-round1 --threshold 2 --participant 2
+   ./olaf-cli generate-threshold-public-key-round1 --threshold 2 --participant 2
    ```
 
 ##### Step 3.1.2: Generate the Secret Signing Shares and the Threshold Public Key
@@ -129,11 +129,11 @@ Each participant runs the corresponding command:
 Each participant runs the corresponding command:
 
 ```bash
-./olaf_cli generate-threshold-public-key-round2 --participant 1
+./olaf-cli generate-threshold-public-key-round2 --participant 1
 ```
 
 ```bash
-./olaf_cli generate-threshold-public-key-round2 --participant 2
+./olaf-cli generate-threshold-public-key-round2 --participant 2
 ```
 
 **Note:** The `threshold_public_key.json` should be the same for all participants if the steps are followed correctly.
@@ -147,11 +147,11 @@ This process allows the participants to collaboratively sign a transaction using
 Each participant runs the corresponding command:
 
 ```bash
-./olaf_cli threshold-sign-round1 --participant 1
+./olaf-cli threshold-sign-round1 --participant 1
 ```
 
 ```bash
-./olaf_cli threshold-sign-round1 --participant 2
+./olaf-cli threshold-sign-round1 --participant 2
 ```
 
 ##### Step 3.2.2: Generate the Signing Packages
@@ -169,11 +169,11 @@ Each participant runs the corresponding command:
 Each participant runs the corresponding command:
 
 ```bash
-./olaf_cli threshold-sign-round2 --participant 1
+./olaf-cli threshold-sign-round2 --participant 1
 ```
 
 ```bash
-./olaf_cli threshold-sign-round2 --participant 1
+./olaf-cli threshold-sign-round2 --participant 1
 ```
 
 ##### Step 3.2.3: Aggregate the Signing Packages
@@ -183,7 +183,7 @@ Only one participant needs to run the following command:
 **Command:**
 
 ```bash
-./olaf_cli aggregate-threshold-extrinsic
+./olaf-cli aggregate-threshold-extrinsic
 ```
 
 This produces the final threshold signature (`threshold_signature.json`), ready for submission.
