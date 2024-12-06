@@ -8,45 +8,6 @@ The Threshold Signature CLI allows multiple participants to collaboratively gene
 
 This tool is useful for scenarios where trust and security need to be distributed among multiple parties, such as in multi-signature wallets or collaborative decision-making processes.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Tutorial](#tutorial)
-  - [Step 1: Generate Key Pairs for Participants](#step-1-generate-key-pairs-for-participants)
-  - [Step 2: Prepare the Threshold Signature CLI Environment](#step-2-prepare-the-threshold-signature-cli-environment)
-  - [Step 3: Run the Threshold Key Generation Protocol](#step-3-run-the-threshold-key-generation-protocol)
-    - [Step 3.1: Generate the Threshold Public Key](#step-31-generate-the-threshold-public-key)
-      - [Step 3.1.1: Create the `recipients.json` File](#step-311-create-the-recipientsjson-file)
-      - [Step 3.1.2: Generate Round 1 Messages](#step-312-generate-round-1-messages)
-      - [Step 3.1.3: Exchange Round 1 Messages](#step-313-exchange-round-1-messages)
-      - [Step 3.1.4: Aggregate Round 1 Messages](#step-314-aggregate-round-1-messages)
-      - [Step 3.1.5: Generate Secret Signing Shares and Threshold Public Key](#step-315-generate-secret-signing-shares-and-threshold-public-key)
-    - [Step 3.2: Generate the Threshold Signature](#step-32-generate-the-threshold-signature)
-      - [Step 3.2.1: Generate Signing Nonces and Commitments](#step-321-generate-signing-nonces-and-commitments)
-      - [Step 3.2.2: Exchange Signing Commitments](#step-322-exchange-signing-commitments)
-      - [Step 3.2.3: Aggregate Signing Commitments](#step-323-aggregate-signing-commitments)
-      - [Step 3.2.4: Generate Partial Signatures](#step-324-generate-partial-signatures)
-      - [Step 3.2.5: Exchange Partial Signatures](#step-325-exchange-partial-signatures)
-      - [Step 3.2.6: Aggregate Partial Signatures](#step-326-aggregate-partial-signatures)
-    - [Step 3.3: Submit the Threshold Signature](#step-33-submit-the-threshold-signature)
-      - [Step 3.3.1: Fund the Threshold Account](#step-331-fund-the-threshold-account)
-      - [Step 3.3.2: Submit the Transaction](#step-332-submit-the-transaction)
-- [Additional Notes and Best Practices](#additional-notes-and-best-practices)
-- [Summary of Steps for Each Participant](#summary-of-steps-for-each-participant)
-- [License](#license)
-
-## Overview
-
-In a threshold signature scheme, multiple participants collaborate to generate a signature that requires a minimum number of participants (threshold) to sign transactions. This enhances security by distributing trust and control.
-
-This CLI tool implements the protocol for threshold key generation and signing, allowing participants to:
-
-- Generate individual key pairs.
-- Collaboratively generate a threshold public key.
-- Produce threshold signatures for transactions.
-
 ## Prerequisites
 
 - [Subkey](https://docs.substrate.io/reference/command-line-tools/subkey/) installed for key pair generation.
@@ -78,9 +39,9 @@ This CLI tool implements the protocol for threshold key generation and signing, 
 
 This tutorial demonstrates how to set up a threshold signature scheme with **2 participants** and a **threshold of 2** (both participants are required to sign).
 
-**Note:** Each CLI command must be run individually by each participant. Outputs must be manually gathered and shared between participants using out-of-band communication or by running each participant's steps on the same machine.
+**Note:** Each step of the protocol and the corresponding CLI command must be run individually by each participant, except the last two steps (aggregation and submission). Outputs of other participants must be shared using out-of-band communication and manually created if run on different machines. But can also be run automatically on the same machine.
 
-### Step 1: Generate Key Pairs for Participants
+### Step 1: Generate Key Pairs 
 
 Each participant generates their own key pair using `subkey`.
 
@@ -116,8 +77,6 @@ Public key (SS58): 5Gma8SNsn6rkQf9reAWFQ9WKq8bwwHtSzwMYtLTdhYsGPKiy
 SS58 Address:      5Gma8SNsn6rkQf9reAWFQ9WKq8bwwHtSzwMYtLTdhYsGPKiy
 ```
 
-**Important:** Keep your **Secret phrase** and **Secret seed** confidential.
-
 ### Step 2: Prepare the Threshold Signature CLI Environment
 
 Ensure you have built and are inside the Docker container as per the [Setup](#setup) section.
@@ -128,7 +87,7 @@ This protocol consists of multiple rounds where participants generate and exchan
 
 #### Step 3.1: Generate the Threshold Public Key
 
-##### Step 3.1.1: Create the `recipients.json` File
+##### Step 3.1.1: Create the Recipients and Secret Key files
 
 Each participant needs a `recipients.json` file containing the SS58 public keys of all participants.
 
@@ -141,63 +100,41 @@ echo '[
 ]' > recipients.json
 ```
 
-**Note:** Replace the public keys with those of your actual participants.
-
-##### Step 3.1.2: Generate Round 1 Messages
-
-For each participant:
-
-1. **Create `contributor_secret_key.json`:**
-
-   **Participant 1:**
+Each participant runs the corresponding command:
 
    ```bash
-   echo '"0x473a77675b8e77d90c1b6dc2dbe6ac533b0853790ea8bcadf0ee8b5da4cfbbce"' > contributor_secret_key.json
+   echo '"0x473a77675b8e77d90c1b6dc2dbe6ac533b0853790ea8bcadf0ee8b5da4cfbbce"' > contributor_secret_key1.json
    ```
 
    **Participant 2:**
 
    ```bash
-   echo '"0xdb9ddbb3d6671c4de8248a4fba95f3d873dc21a0434b52951bb33730c1ac93d7"' > contributor_secret_key.json
+   echo '"0xdb9ddbb3d6671c4de8248a4fba95f3d873dc21a0434b52951bb33730c1ac93d7"' > contributor_secret_key2.json
    ```
 
-2. **Run `generate-threshold-public-key-round1`:**
+##### Step 3.1.2: Generate Round 1 Messages
+
+Each participant runs the corresponding command:
 
    ```bash
-   cargo run generate-threshold-public-key-round1 --threshold 2
+   ./olaf-cli generate-threshold-public-key-round1 --threshold 2 --participant 1
    ```
 
-   This command generates a `all_messages.json` file that needs to be shared with all other participants.
+   ```bash
+   ./olaf-cli generate-threshold-public-key-round1 --threshold 2 --participant 2
+   ```
 
-##### Step 3.1.3: Exchange Round 1 Messages
+##### Step 3.1.2: Generate the Secret Signing Shares and the Threshold Public Key
 
-Participants share their `all_messages.json` files with each other using secure, out-of-band communication methods.
-
-##### Step 3.1.4: Aggregate Round 1 Messages
-
-Each participant collects each partipant's `all_messages.json` files (including their own) and aggregates them manually into `all_messages.json`.
-
-**Note:** `cat` can be used to read the files.
-
-##### Step 3.1.5: Generate Secret Signing Shares and Threshold Public Key
-
-Each participant runs:
+Each participant runs the corresponding command:
 
 ```bash
-cargo run generate-threshold-public-key-round2
+./olaf-cli generate-threshold-public-key-round2 --participant 1
 ```
 
-This command uses:
-
-- `contributor_secret_key.json`
-- `recipients.json`
-- `all_messages.json`
-
-It generates:
-
-- **Signing share** (`signing_share.json`).
-- **Generation output** (`generation_output.json`).
-- **Threshold public key** (`threshold_public_key.json`).
+```bash
+./olaf-cli generate-threshold-public-key-round2 --participant 2
+```
 
 **Note:** The `threshold_public_key.json` should be the same for all participants if the steps are followed correctly.
 
@@ -205,28 +142,19 @@ It generates:
 
 This process allows the participants to collaboratively sign a transaction using the threshold key.
 
-##### Step 3.2.1: Generate Signing Nonces and Commitments
+##### Step 3.2.1: Generate the secret Signing Nonces and the public Signing Commitments
 
-Each participant runs:
+Each participant runs the corresponding command:
 
 ```bash
-cargo run threshold-sign-round1
+./olaf-cli threshold-sign-round1 --participant 1
 ```
 
-This generates:
+```bash
+./olaf-cli threshold-sign-round1 --participant 2
+```
 
-- **Secret signing nonces** (`signing_nonces.json`).
-- **Public signing commitments** (`signing_commitments.json`).
-
-##### Step 3.2.2: Exchange Signing Commitments
-
-Participants share their `signing_commitments.json` files with each other.
-
-##### Step 3.2.3: Aggregate Signing Commitments
-
-Each participant aggregates each participant's `signing_commitments.json` files manually into `signing_commitments.json`.
-
-##### Step 3.2.4: Generate Signing Packages
+##### Step 3.2.2: Generate the Signing Packages
 
 **Default Values:**
 
@@ -238,26 +166,24 @@ Each participant aggregates each participant's `signing_commitments.json` files 
 
 **Note:** You can override these defaults using flags, e.g., `--url "custom_url"`.
 
-Each participant runs:
+Each participant runs the corresponding command:
 
 ```bash
-cargo run threshold-sign-round2
+./olaf-cli threshold-sign-round2 --participant 1
 ```
 
-This command generates the participant's **signing_package** (`signing_packages.json`).
+```bash
+./olaf-cli threshold-sign-round2 --participant 2
+```
 
-##### Step 3.2.5: Exchange Signing Packages
+##### Step 3.2.3: Aggregate the Signing Packages
 
-Participants share their `signing_packages.json` files with each other.
-
-##### Step 3.2.6: Aggregate Signing Packages
-
-One participant (or each participant individually) manually aggregates the signing packages to create the final threshold signature.
+Only one participant needs to run the following command:
 
 **Command:**
 
 ```bash
-cargo run aggregate-threshold-extrinsic
+./olaf-cli aggregate-threshold-extrinsic
 ```
 
 This produces the final threshold signature (`threshold_signature.json`), ready for submission.
@@ -268,90 +194,16 @@ This produces the final threshold signature (`threshold_signature.json`), ready 
 
 Ensure the threshold account (identified by `threshold_public_key.json`) has sufficient funds. You can use a faucet or transfer from existing accounts.
 
-For example, on the Westend network, use the [Westend Faucet](https://matrix.to/#/#westend_faucet:matrix.org).
+For example, on the Westend network, use the [Westend Faucet](https://faucet.polkadot.io/westend).
 
 ##### Step 3.3.2: Submit the Threshold Extrinsic
+
+Only one participant needs to run the following command:
 
 Run:
 
 ```bash
-cargo run submit-threshold-extrinsic
+./olaf-cli submit-threshold-extrinsic
 ```
 
 This submits the threshold-signed extrinsic to the network.
-
-## Summary of Steps for Each Participant
-
-1. **Generate Key Pair:**
-
-   ```bash
-   subkey generate
-   ```
-
-2. **Create `recipients.json`:**
-
-   Contains all participants' SS58 public keys.
-
-3. **Create `contributor_secret_key.json`:**
-
-   Contains your secret seed in hex format.
-
-4. **Run Round 1 of Key Generation:**
-
-   ```bash
-   cargo run generate-threshold-public-key-round1 --threshold 2
-   ```
-
-5. **Share `message.json`:**
-
-   Exchange with other participants.
-
-6. **Aggregate Messages:**
-
-   Create `all_messages.json` containing all participants' messages.
-
-7. **Run Round 2 of Key Generation:**
-
-   ```bash
-   cargo run generate-threshold-public-key-round2
-   ```
-
-8. **Run Round 1 of Signing:**
-
-   ```bash
-   cargo run threshold-sign-round1
-   ```
-
-9. **Share `signing_commitments.json`:**
-
-   Exchange with other participants.
-
-10. **Aggregate Signing Commitments:**
-
-    Create `all_signing_commitments.json`.
-
-11. **Run Round 2 of Signing:**
-
-    ```bash
-    cargo run threshold-sign-round2
-    ```
-
-12. **Share `signing_packages.json`:**
-
-    Exchange with other participants.
-
-13. **Aggregate Signing Packages:**
-
-    Run:
-
-    ```bash
-    cargo run aggregate-threshold-extrinsic
-    ```
-
-14. **Submit the Threshold Extrinsic:**
-
-    ```bash
-    cargo run submit-threshold-extrinsic
-    ```
-
-
