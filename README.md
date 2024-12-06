@@ -173,7 +173,7 @@ Each participant runs the corresponding command:
 ```
 
 ```bash
-./olaf_cli threshold-sign-round2 --participant 1
+./olaf_cli threshold-sign-round2 --participant 2
 ```
 
 ##### Step 3.2.3: Aggregate the Signing Packages
