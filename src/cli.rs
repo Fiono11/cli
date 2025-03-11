@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use ed25519_dalek::VerifyingKey;
 use olaf::{
     frost::{aggregate, SigningPackage},
-    simplpedpop::{AllMessage, SPPOutputMessage},
+    simplpedpop::{AllMessage, SPPOutput},
     SigningKeypair,
 };
 use rand_core::OsRng;
@@ -188,7 +188,6 @@ impl Cli {
 
                 let threshold_account = Account(
                     spp_output_message
-                        .spp_output
                         .threshold_public_key
                         .0
                         .to_bytes(),
@@ -236,7 +235,7 @@ impl Cli {
                 let signing_package = signing_share
                     .sign(
                         &tx_hash,
-                        &spp_output_message.spp_output,
+                        &spp_output_message,
                         &signing_commitments,
                         &signing_nonces,
                     )
@@ -275,10 +274,9 @@ impl Cli {
 
                 let output_string = fs::read_to_string(file_path.join("spp_output.json"))?;
                 let output_bytes: Vec<u8> = serde_json::from_str(&output_string)?;
-                let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
+                let spp_output_message = SPPOutput::from_bytes(&output_bytes).unwrap();
                 let threshold_account = Account(
                     spp_output_message
-                        .spp_output
                         .threshold_public_key
                         .0
                         .to_bytes(),
