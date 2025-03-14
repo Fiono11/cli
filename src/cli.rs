@@ -10,7 +10,7 @@ use clap::{Parser, Subcommand};
 use ed25519_dalek::VerifyingKey;
 use olaf::{
     frost::{aggregate, SigningPackage},
-    simplpedpop::{AllMessage, SPPOutput},
+    simplpedpop::{AllMessage, SPPOutputMessage},
     SigningKeypair,
 };
 use rand_core::OsRng;
@@ -188,13 +188,18 @@ impl Cli {
 
                 let threshold_account = Account(
                     spp_output_message
+                        .spp_output
                         .threshold_public_key
                         .0
                         .to_bytes(),
                 );
                 let rpc_client = get_rpc_client(rpc_url.clone()).await;
 
-                let (previous, _) = get_previous(&rpc_client, &origin).await?;
+                let (previous, _) = 
+                    match get_previous(&rpc_client, &origin).await {
+                        Ok((previous, _)) => (previous, String::new()),
+                        Err(_) => ([0; 32], String::new())
+                    };
 
                 let balance_rpc = get_balance(&rpc_client, origin).await?;
 
@@ -235,7 +240,7 @@ impl Cli {
                 let signing_package = signing_share
                     .sign(
                         &tx_hash,
-                        &spp_output_message,
+                        &spp_output_message.spp_output,
                         &signing_commitments,
                         &signing_nonces,
                     )
@@ -274,9 +279,10 @@ impl Cli {
 
                 let output_string = fs::read_to_string(file_path.join("spp_output.json"))?;
                 let output_bytes: Vec<u8> = serde_json::from_str(&output_string)?;
-                let spp_output_message = SPPOutput::from_bytes(&output_bytes).unwrap();
+                let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
                 let threshold_account = Account(
                     spp_output_message
+                        .spp_output
                         .threshold_public_key
                         .0
                         .to_bytes(),
@@ -284,7 +290,11 @@ impl Cli {
 
                 let rpc_client = get_rpc_client(rpc_url.clone()).await;
 
-                let (previous, previous_str) = get_previous(&rpc_client, &origin).await?;
+                let (previous, previous_str) = 
+                    match get_previous(&rpc_client, &origin).await {
+                        Ok((previous, previous_str)) => (previous, previous_str),
+                        Err(_) => ([0; 32], origin.clone())
+                    };
 
                 let balance_rpc = get_balance(&rpc_client, origin).await?;
 
@@ -331,6 +341,8 @@ impl Cli {
                     hash,
                     sideband: None,
                 };
+
+                //println!("{:?}", block);
 
                 rpc_client
                     .process(

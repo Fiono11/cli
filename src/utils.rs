@@ -5,7 +5,7 @@ use crate::{
 use anyhow::Result;
 use olaf::{
     frost::{SigningCommitments, SigningNonces},
-    simplpedpop::SPPOutput,
+    simplpedpop::SPPOutputMessage,
     SigningKeypair,
 };
 use reqwest::Url;
@@ -89,7 +89,7 @@ pub(crate) fn load_files(
     Vec<SigningCommitments>,
     SigningNonces,
     SigningKeypair,
-    SPPOutput,
+    SPPOutputMessage,
 )> {
     let signing_commitments_string =
         fs::read_to_string(file_path.join("signing_commitments.json"))?;
@@ -112,7 +112,7 @@ pub(crate) fn load_files(
 
     let output_string = fs::read_to_string(file_path.join("spp_output.json"))?;
     let output_bytes: Vec<u8> = serde_json::from_str(&output_string)?;
-    let spp_output_message = SPPOutput::from_bytes(&output_bytes).unwrap();
+    let spp_output_message = SPPOutputMessage::from_bytes(&output_bytes).unwrap();
 
     Ok((
         signing_commitments,
