@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4", features = ["derive", "cargo"] }
-olaf = { path = "../Olaf_ed25519" }
+olaf = { git = "https://github.com/Fiono11/Olaf_ed25519.git", branch = "blake2b" }
 rand_core = { version = "0.6.2", default-features = false }
 serde_json = "1.0"
 ed25519-dalek = { git = "https://github.com/Fiono11/ed25519-dalek.git", branch = "blakeb2" }

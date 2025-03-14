@@ -991,6 +991,7 @@ dependencies = [
 [[package]]
 name = "olaf"
 version = "0.1.0"
+source = "git+https://github.com/Fiono11/Olaf_ed25519.git?branch=blake2b#8893d4840a800749c7037603b9286c21c54bcab8"
 dependencies = [
  "blake2",
  "curve25519-dalek",
