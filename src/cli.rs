@@ -198,7 +198,9 @@ impl Cli {
                 let (previous, _) = 
                     match get_previous(&rpc_client, &origin).await {
                         Ok((previous, _)) => (previous, String::new()),
-                        Err(_) => ([0; 32], String::new())
+                        Err(_) => {
+                            ([0; 32], String::new())
+                        }
                     };
 
                 let balance_rpc = get_balance(&rpc_client, origin).await?;
@@ -293,7 +295,9 @@ impl Cli {
                 let (previous, previous_str) = 
                     match get_previous(&rpc_client, &origin).await {
                         Ok((previous, previous_str)) => (previous, previous_str),
-                        Err(_) => ([0; 32], origin.clone())
+                        Err(_) => {
+                            ([0; 32], hex::encode(Account::decode_account(origin.clone()).unwrap().0))
+                        }
                     };
 
                 let balance_rpc = get_balance(&rpc_client, origin).await?;
